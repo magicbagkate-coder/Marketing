@@ -11,11 +11,11 @@ export const instagramAccounts: string[] = [
   'whowhatwear',
   'purseblog',
   'thestylestalkercom',
-  'shotbygio',
   'advancedstyle',
 ];
 
-// Each source is a verified RSS/Atom feed. vogue.ua and lofficiel.com have no readable feed yet.
+// Each source is a verified RSS/Atom feed. vogue.ua and lofficiel.com have no feed of their own,
+// so they are read through the Google News RSS search for the last day.
 export const newsSources: NewsSource[] = [
   { name: 'Vogue US', feedUrl: 'https://www.vogue.com/feed/rss' },
   { name: 'Vogue Italia', feedUrl: 'https://www.vogue.it/feed/rss' },
@@ -35,4 +35,6 @@ export const newsSources: NewsSource[] = [
   { name: 'Tatler', feedUrl: 'https://www.tatler.com/feed/rss' },
   { name: 'The Zoe Report', feedUrl: 'https://www.thezoereport.com/rss' },
   { name: 'E! Online', feedUrl: 'https://www.eonline.com/syndication/feeds/rssfeeds/topstories.xml' },
+  { name: 'Vogue Ukraine', feedUrl: 'https://news.google.com/rss/search?q=site:vogue.ua+when:1d&hl=uk&gl=UA&ceid=UA:uk' },
+  { name: 'L\'Officiel', feedUrl: 'https://news.google.com/rss/search?q=site:lofficiel.com+when:1d&hl=fr&gl=FR&ceid=FR:fr' },
 ];
