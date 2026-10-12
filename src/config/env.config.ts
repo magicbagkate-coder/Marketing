@@ -1,6 +1,6 @@
 import 'dotenv/config';
 
-const DEFAULT_PORT = 3000;
+const DEFAULT_PORT = 7000;
 
 export type EnvConfig = {
   port: number;

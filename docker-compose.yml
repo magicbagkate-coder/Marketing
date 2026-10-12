@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    container_name: magicbag-news
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "7000:7000"
