@@ -52,7 +52,7 @@ export default tseslint.config(
       'no-nested-ternary': 'error',
 
       // Names
-      camelcase: 'error',
+      camelcase: ['error', { properties: 'never' }], // API field names like chat_id are dictated by external services
       'id-denylist': ['error', 'handler', 'handle', 'process', 'data', 'temp'],
 
       // Async and errors
@@ -68,7 +68,6 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/explicit-module-boundary-types': 'error',
       '@typescript-eslint/consistent-type-definitions': ['error', 'type'],
-      '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-unused-vars': 'error',
 
       // Imports: packages, then types, then local modules; blank line between groups
