@@ -15,10 +15,10 @@ export function buildPromptInput(items: NewsItem[]): string {
   return [DIGEST_INPUT_INTRO, ...items.map(formatItemForPrompt)].join('\n');
 }
 
-/** Fallback digest without retelling: a plain list of headlines with links, used when Claude is unavailable. */
-export function buildPlainDigest(items: NewsItem[]): string {
+/** Fallback digest without retelling: a notice with the reason, then a plain list of headlines with links. */
+export function buildPlainDigest(items: NewsItem[], notice: string): string {
   const lines = items.map((item) => `• <b>${escapeHtml(item.source)}</b>: <a href="${escapeHtml(item.link)}">${escapeHtml(item.title)}</a>`);
-  return [`<b>${PLAIN_DIGEST_TITLE}</b>`, ...lines].join('\n');
+  return [notice, `<b>${PLAIN_DIGEST_TITLE}</b>`, ...lines].join('\n');
 }
 
 export function buildFailedSourcesLine(failedSources: string[]): string {

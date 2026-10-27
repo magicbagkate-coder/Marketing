@@ -3,5 +3,7 @@ dist
 .git
 .env
 ai
+reports
+data
 *.log
 *.tsbuildinfo

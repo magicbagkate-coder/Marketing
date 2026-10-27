@@ -4,6 +4,7 @@ import type { NewsItem } from '@/sources/source.types';
 
 import { NewsCollectorService } from '@/collector/news-collector.service';
 import { ClaudeDigestService } from '@/digest/claude-digest.service';
+import { describeClaudeFailure } from '@/digest/claude-failure';
 import { NO_NEWS_MESSAGE } from '@/digest/digest.texts';
 import { buildFailedSourcesLine, buildPlainDigest } from '@/digest/digest-format';
 import { TelegramService } from '@/telegram/telegram.service';
@@ -32,7 +33,7 @@ export class DigestService {
       return await this.claude.writeDigest(items);
     } catch (error) {
       this.logger.error(`Claude digest failed, sending plain list instead: ${String(error)}`);
-      return buildPlainDigest(items);
+      return buildPlainDigest(items, describeClaudeFailure(error));
     }
   }
 }

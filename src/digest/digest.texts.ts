@@ -19,6 +19,13 @@ export const DIGEST_INPUT_INTRO = 'Новости за последние сут
 
 export const NO_NEWS_MESSAGE = 'За последние сутки свежих новостей в источниках не нашлось.';
 
-export const PLAIN_DIGEST_TITLE = 'Новости за сутки (без пересказа, сводку не удалось подготовить)';
+export const PLAIN_DIGEST_TITLE = 'Новости за сутки, список заголовков';
+
+export const NOTICE_LOW_BALANCE =
+  '⚠️ Пересказ не подготовлен: на счёте Claude закончились средства. Пополните баланс на console.anthropic.com, завтрашняя сводка придёт обычной.';
+
+export const NOTICE_INVALID_KEY = '⚠️ Пересказ не подготовлен: Claude не принял ключ доступа. Нужно проверить ключ ANTHROPIC_API_KEY на сервере.';
+
+export const NOTICE_GENERIC = '⚠️ Пересказ не подготовлен из-за временной ошибки Claude. Ниже список заголовков.';
 
 export const FAILED_SOURCES_PREFIX = 'Не удалось прочитать источники: ';

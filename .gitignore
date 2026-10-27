@@ -10,6 +10,12 @@ dist/
 .env.*
 !.env.example
 
+# local analysis reports (competitor data, not for GitHub)
+reports/
+
+# sales exports from the stats agent (business data, never commit)
+data/
+
 # logs
 *.log
 npm-debug.log*
