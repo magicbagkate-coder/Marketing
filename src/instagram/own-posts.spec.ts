@@ -24,6 +24,7 @@ describe('toOwnPost', () => {
       likes: 0,
       comments: 0,
       publishedAt: '',
+      baseline: { reels: 0, likes: 0, comments: 0 },
     });
   });
 });

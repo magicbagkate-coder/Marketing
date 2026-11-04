@@ -1,3 +1,6 @@
+import type { Baseline } from '@/instagram/baseline';
+
+import { baselineOf, EMPTY_BASELINE } from '@/instagram/baseline';
 import { callGraph } from '@/instagram/graph-client';
 import { OWN_ACCOUNTS, OWN_MAX_PAGES, OWN_POSTS_PER_PAGE } from '@/instagram/instagram.constants';
 import { findReelCode } from '@/instagram/reel-link';
@@ -10,6 +13,8 @@ export type OwnPost = {
   likes: number;
   comments: number;
   publishedAt: string;
+  /** Typical results of the account, to tell whether this reel did better or worse than usual. */
+  baseline: Baseline;
 };
 
 type RawPost = {
@@ -61,16 +66,19 @@ export function toOwnPost(raw: RawPost, username: string): OwnPost {
     likes: orZero(raw.like_count),
     comments: orZero(raw.comments_count),
     publishedAt: orEmpty(raw.timestamp),
+    baseline: EMPTY_BASELINE,
   };
 }
 
 async function searchAccount(username: string, options: SearchOptions): Promise<OwnPost | undefined> {
+  const seen: RawPost[] = [];
   let after: string | undefined;
   for (let page = 0; page < OWN_MAX_PAGES; page += 1) {
     const response = await callGraph(options.businessId, { fields: buildQuery(username, after), access_token: options.token });
     const result = parsePage(response);
+    seen.push(...result.posts);
     const found = result.posts.find((post) => post.permalink && findReelCode(post.permalink) === options.code);
-    if (found) return toOwnPost(found, username);
+    if (found) return { ...toOwnPost(found, username), baseline: baselineOf(seen, found.permalink) };
     if (!result.next || result.posts.length === 0) return undefined;
     after = result.next;
   }

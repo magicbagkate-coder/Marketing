@@ -5,6 +5,7 @@ import {
   FAILED_AUDIO_NOTE,
   NO_AUDIO_NOTE,
   NO_KEY_NOTE,
+  PUBLISHED_REVIEW_INSTRUCTION,
   REVIEW_INSTRUCTION,
   REVIEW_PHOTO_INTRO,
   SILENT_AUDIO_NOTE,
@@ -55,12 +56,17 @@ const describeTranscript = (transcript: Transcript): string =>
 
 const describeCaption = (caption: string): string => (caption ? `Подпись сотрудника: ${caption}` : 'Подписи от сотрудника нет.');
 
+/** A published reel: Instagram facts plus whatever numbers or remarks the employee added (reach, views, sales). */
+const describePublishedContext = (published: string, notes: string): string =>
+  notes ? `${published}\nДописал сотрудник (цифры отсюда достоверны, учти их при оценке): ${notes}` : published;
+
 /** Everything Claude gets for a video review: facts, caption, speech, frames with time marks, and the answer format. */
 export function buildReviewContent(material: ReviewMaterial): Anthropic.ContentBlockParam[] {
-  const context = material.published ?? describeCaption(material.caption);
+  const context = material.published ? describePublishedContext(material.published, material.caption) : describeCaption(material.caption);
   const intro = [describeFormat(material.info), context, describeTranscript(material.transcript)];
   const frames = material.frames.flatMap((frame) => [textBlock(`Кадр на ${frame.second} с:`), imageBlock(frame.base64)]);
-  return [textBlock(intro.join('\n')), textBlock('Кадры ролика по времени:'), ...frames, textBlock(REVIEW_INSTRUCTION)];
+  const instruction = material.published ? PUBLISHED_REVIEW_INSTRUCTION : REVIEW_INSTRUCTION;
+  return [textBlock(intro.join('\n')), textBlock('Кадры ролика по времени:'), ...frames, textBlock(instruction)];
 }
 
 /** Review of a single picture (cover or still), no sound. */

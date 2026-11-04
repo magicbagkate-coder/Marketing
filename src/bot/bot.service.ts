@@ -122,12 +122,12 @@ export class BotService {
 
   private runReviewTask(message: TelegramMessage, intent: MessageIntent): Promise<void> {
     if (intent.media) return this.runReview(message, intent.media, intent.text);
-    return this.runReelReview(message, intent.reelCode ?? '');
+    return this.runReelReview(message, intent);
   }
 
-  private async runReelReview(message: TelegramMessage, code: string): Promise<void> {
+  private async runReelReview(message: TelegramMessage, intent: MessageIntent): Promise<void> {
     await this.reply(message, FETCHING_REEL_TEXT);
-    const answer = await this.withTyping(message.chat.id, () => this.reviews.link(code));
+    const answer = await this.withTyping(message.chat.id, () => this.reviews.link(intent.reelCode ?? '', intent.text));
     await this.reply(message, answer);
   }
 

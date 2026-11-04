@@ -1,4 +1,11 @@
-import { findReelCode } from '@/instagram/reel-link';
+import { findReelCode, stripReelLinks } from '@/instagram/reel-link';
+
+describe('stripReelLinks', () => {
+  it('keeps only the employee words', () => {
+    expect(stripReelLinks('https://www.instagram.com/reel/AbC/?igsh=1  охват 40к, продаж 3')).toBe('охват 40к, продаж 3');
+    expect(stripReelLinks('https://www.instagram.com/reel/AbC/')).toBe('');
+  });
+});
 
 describe('findReelCode', () => {
   it('reads the code from reel, reels, p and tv links', () => {
