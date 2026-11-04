@@ -67,16 +67,22 @@ const describePublishedContext = (published: string, notes: string): string =>
 const statsBlocks = (screenshot: string | undefined): Anthropic.ContentBlockParam[] =>
   screenshot ? [textBlock(STATS_SCREENSHOT_NOTE), imageBlock(screenshot)] : [];
 
+/** The facts about a video as text: format, caption or Instagram results, speech. Kept for follow-up questions. */
+export function describeFacts(material: ReviewMaterial): string {
+  const context = material.published ? describePublishedContext(material.published, material.caption) : describeCaption(material.caption);
+  return [describeFormat(material.info), context, describeTranscript(material.transcript)].join('\n');
+}
+
+export const describePhotoFacts = (caption: string): string => `${REVIEW_PHOTO_INTRO}\n${describeCaption(caption)}`;
+
 /** Everything Claude gets for a video review: facts, caption, speech, frames with time marks, and the answer format. */
 export function buildReviewContent(material: ReviewMaterial): Anthropic.ContentBlockParam[] {
-  const context = material.published ? describePublishedContext(material.published, material.caption) : describeCaption(material.caption);
-  const intro = [describeFormat(material.info), context, describeTranscript(material.transcript)];
   const frames = material.frames.flatMap((frame) => [textBlock(`Кадр на ${frame.second} с:`), imageBlock(frame.base64)]);
   const instruction = material.published ? PUBLISHED_REVIEW_INSTRUCTION : REVIEW_INSTRUCTION;
-  return [textBlock(intro.join('\n')), textBlock('Кадры ролика по времени:'), ...frames, ...statsBlocks(material.screenshot), textBlock(instruction)];
+  return [textBlock(describeFacts(material)), textBlock('Кадры ролика по времени:'), ...frames, ...statsBlocks(material.screenshot), textBlock(instruction)];
 }
 
 /** Review of a single picture (cover or still), no sound. */
 export function buildPhotoContent(base64: string, caption: string): Anthropic.ContentBlockParam[] {
-  return [textBlock(`${REVIEW_PHOTO_INTRO}\n${describeCaption(caption)}`), imageBlock(base64), textBlock(REVIEW_INSTRUCTION)];
+  return [textBlock(describePhotoFacts(caption)), imageBlock(base64), textBlock(REVIEW_INSTRUCTION)];
 }

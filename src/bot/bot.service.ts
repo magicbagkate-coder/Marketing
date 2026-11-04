@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import type { ReelDossier } from '@/assistant/reel-talk.service';
+import type { ReviewResult } from '@/assistant/review-result';
 import type { IntentKind, MediaRef, MessageIntent } from '@/bot/command-parser';
 import type { BotIdentity, TelegramMessage, TelegramUpdate } from '@/telegram/telegram.types';
 
@@ -102,7 +104,24 @@ export class BotService {
     }
   }
 
+  /** A reply to the bot's review (or, in a private chat, a fresh question) continues the talk about that video. */
+  private findDossier(message: TelegramMessage, intent: MessageIntent): ReelDossier | undefined {
+    if (intent.kind !== 'chat') return undefined;
+    return this.reviews.findDossier({
+      chatId: message.chat.id,
+      replyTo: message.reply_to_message?.message_id,
+      isPrivate: message.chat.type === 'private',
+    });
+  }
+
+  private async discuss(message: TelegramMessage, dossier: ReelDossier, question: string): Promise<void> {
+    const answer = await this.withTyping(message.chat.id, () => this.reviews.ask(dossier, question));
+    this.reviews.rememberAnswer(message.chat.id, await this.replyIds(message, answer), dossier);
+  }
+
   private async answerText(message: TelegramMessage, intent: MessageIntent): Promise<void> {
+    const dossier = this.findDossier(message, intent);
+    if (dossier) return this.discuss(message, dossier, intent.text);
     const request = { chatId: message.chat.id, text: intent.text, replyContext: intent.replyContext };
     const answer = await this.withTyping(message.chat.id, () => this.assistant.answer(intent.kind, request));
     await this.reply(message, answer);
@@ -128,15 +147,19 @@ export class BotService {
   private async runReelReview(message: TelegramMessage, intent: MessageIntent): Promise<void> {
     await this.reply(message, FETCHING_REEL_TEXT);
     const screenshot = intent.screenshot ? await this.api.downloadFile(intent.screenshot.fileId) : undefined;
-    const answer = await this.withTyping(message.chat.id, () => this.reviews.link(intent.reelCode ?? '', intent.text, screenshot));
-    await this.reply(message, answer);
+    const review = await this.withTyping(message.chat.id, () => this.reviews.link(intent.reelCode ?? '', intent.text, screenshot));
+    await this.sendReview(message, review);
+  }
+
+  private async sendReview(message: TelegramMessage, review: ReviewResult): Promise<void> {
+    this.reviews.rememberReview(message.chat.id, await this.replyIds(message, review.answer), review);
   }
 
   private async runReview(message: TelegramMessage, media: MediaRef, caption: string): Promise<void> {
     await this.reply(message, PROCESSING_TEXT);
     const buffer = await this.api.downloadFile(media.fileId);
-    const answer = await this.withTyping(message.chat.id, () => this.reviews.file({ media: buffer, kind: media.kind, caption }));
-    await this.reply(message, answer);
+    const review = await this.withTyping(message.chat.id, () => this.reviews.file({ media: buffer, kind: media.kind, caption }));
+    await this.sendReview(message, review);
   }
 
   private async reloadKnowledge(message: TelegramMessage): Promise<void> {
@@ -153,7 +176,12 @@ export class BotService {
     }
   }
 
-  private reply(message: TelegramMessage, text: string): Promise<void> {
+  private async reply(message: TelegramMessage, text: string): Promise<void> {
+    await this.replyIds(message, text);
+  }
+
+  /** Sends the reply and returns the ids of the messages it was split into. */
+  private replyIds(message: TelegramMessage, text: string): Promise<number[]> {
     const replyTo = message.chat.type === 'private' ? undefined : message.message_id;
     return this.api.sendText({ chatId: message.chat.id, text, replyTo });
   }

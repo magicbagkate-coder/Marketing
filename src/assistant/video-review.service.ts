@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { Injectable, Logger } from '@nestjs/common';
 
 import type { Frame, Transcript } from '@/assistant/review-content';
+import type { ReviewResult } from '@/assistant/review-result';
 import type { MediaKind } from '@/bot/command-parser';
 import type { VideoInfo } from '@/media/ffmpeg';
 import type Anthropic from '@anthropic-ai/sdk';
@@ -11,7 +12,8 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { buildSystemBlocks } from '@/assistant/assistant-prompts';
 import { ClaudeChatService } from '@/assistant/claude-chat.service';
 import { KnowledgeService } from '@/assistant/knowledge.service';
-import { buildPhotoContent, buildReviewContent } from '@/assistant/review-content';
+import { buildPhotoContent, buildReviewContent, describeFacts, describePhotoFacts } from '@/assistant/review-content';
+import { buildDigest, splitFramesLog } from '@/assistant/review-result';
 import { envConfig } from '@/config/env.config';
 import { extractAudio, extractFrame, probeVideo } from '@/media/ffmpeg';
 import { pickFrameTimes } from '@/media/frame-times';
@@ -27,8 +29,19 @@ export type ReviewInput = {
   screenshot?: Buffer;
 };
 
+type PreparedReview = {
+  content: Anthropic.ContentBlockParam[];
+  /** The same facts as text, kept for follow-up questions. */
+  facts: string;
+};
+
 const MAX_FRAMES = 12;
 const REVIEW_MAX_TOKENS = 16_000;
+
+const preparePhoto = (input: ReviewInput): PreparedReview => ({
+  content: buildPhotoContent(input.media.toString('base64'), input.caption),
+  facts: describePhotoFacts(input.caption),
+});
 
 /** Looks at a video (frames and speech) or a picture and evaluates it against the knowledge base. */
 @Injectable()
@@ -40,22 +53,24 @@ export class VideoReviewService {
     private readonly knowledge: KnowledgeService,
   ) {}
 
-  async review(input: ReviewInput): Promise<string> {
+  async review(input: ReviewInput): Promise<ReviewResult> {
     const workDir = await mkdtemp(join(tmpdir(), 'review-'));
     try {
-      const content = input.kind === 'photo' ? buildPhotoContent(input.media.toString('base64'), input.caption) : await this.prepareVideo(input, workDir);
-      return await this.claude.ask({
+      const prepared = input.kind === 'photo' ? preparePhoto(input) : await this.prepareVideo(input, workDir);
+      const raw = await this.claude.ask({
         model: envConfig.modelEvaluate,
         system: buildSystemBlocks(this.knowledge.textFor('review')),
-        messages: [{ role: 'user', content }],
+        messages: [{ role: 'user', content: prepared.content }],
         maxTokens: REVIEW_MAX_TOKENS,
       });
+      const { answer, framesLog } = splitFramesLog(raw);
+      return { answer, digest: buildDigest(prepared.facts, framesLog) };
     } finally {
       await rm(workDir, { recursive: true, force: true });
     }
   }
 
-  private async prepareVideo(input: ReviewInput, workDir: string): Promise<Anthropic.ContentBlockParam[]> {
+  private async prepareVideo(input: ReviewInput, workDir: string): Promise<PreparedReview> {
     const videoPath = join(workDir, 'input.mp4');
     await writeFile(videoPath, input.media);
     const info = await probeVideo(videoPath);
@@ -63,7 +78,8 @@ export class VideoReviewService {
     const transcript = await this.recognizeSpeech(videoPath, info, workDir);
     this.logger.log(`Video review: ${info.durationSec.toFixed(1)} s, ${frames.length} frames, speech ${transcript.status}`);
     const screenshot = input.screenshot?.toString('base64');
-    return buildReviewContent({ info, frames, transcript, caption: input.caption, published: input.published, screenshot });
+    const material = { info, frames, transcript, caption: input.caption, published: input.published, screenshot };
+    return { content: buildReviewContent(material), facts: describeFacts(material) };
   }
 
   private async extractFrames(videoPath: string, info: VideoInfo, workDir: string): Promise<Frame[]> {

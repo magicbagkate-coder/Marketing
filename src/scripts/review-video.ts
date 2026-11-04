@@ -12,8 +12,8 @@ async function reviewLocalFile(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AssistantModule);
   try {
     const kind = /\.(jpe?g|png)$/i.test(filePath) ? 'photo' : 'video';
-    const answer = await app.get(VideoReviewService).review({ media: await readFile(filePath), kind, caption });
-    stdout.write(`${answer}\n`);
+    const result = await app.get(VideoReviewService).review({ media: await readFile(filePath), kind, caption });
+    stdout.write(`${result.answer}\n`);
   } finally {
     await app.close();
   }

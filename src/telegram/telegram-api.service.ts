@@ -56,8 +56,10 @@ export class TelegramApiService {
   }
 
   /** Sends the text, split into several messages when it is too long; falls back to plain text if HTML is rejected. */
-  async sendText(options: SendTextOptions): Promise<void> {
-    for (const chunk of splitMessage(options.text)) await this.sendChunk(chunk, options);
+  async sendText(options: SendTextOptions): Promise<number[]> {
+    const ids: number[] = [];
+    for (const chunk of splitMessage(options.text)) ids.push(await this.sendChunk(chunk, options));
+    return ids;
   }
 
   async downloadFile(fileId: string): Promise<Buffer> {
@@ -71,16 +73,19 @@ export class TelegramApiService {
     return Buffer.from(await response.arrayBuffer());
   }
 
-  private async sendChunk(chunk: string, options: SendTextOptions): Promise<void> {
-    if (await this.trySend(chunk, options, true)) return;
+  private async sendChunk(chunk: string, options: SendTextOptions): Promise<number> {
+    const html = await this.trySend(chunk, options, true);
+    if (html !== undefined) return html;
     this.logger.warn('Telegram rejected the HTML message, resending as plain text');
-    if (await this.trySend(toPlainText(chunk), options, false)) return;
+    const plain = await this.trySend(toPlainText(chunk), options, false);
+    if (plain !== undefined) return plain;
     throw new Error('Telegram rejected the message');
   }
 
-  private async trySend(text: string, options: SendTextOptions, asHtml: boolean): Promise<boolean> {
+  /** Returns the id of the sent message, or undefined when Telegram rejected it. */
+  private async trySend(text: string, options: SendTextOptions, asHtml: boolean): Promise<number | undefined> {
     try {
-      await this.call('sendMessage', {
+      const sent = await this.call<{ message_id: number }>('sendMessage', {
         chat_id: options.chatId,
         text,
         parse_mode: asHtml ? 'HTML' : undefined,
@@ -88,10 +93,10 @@ export class TelegramApiService {
         reply_to_message_id: options.replyTo,
         allow_sending_without_reply: true,
       });
-      return true;
+      return sent.message_id;
     } catch (error) {
       this.logger.warn(`sendMessage failed: ${String(error)}`);
-      return false;
+      return undefined;
     }
   }
 }
