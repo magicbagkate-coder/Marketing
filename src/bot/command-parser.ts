@@ -1,5 +1,7 @@
 import type { BotIdentity, TelegramFileRef, TelegramMessage, TelegramPhotoSize } from '@/telegram/telegram.types';
 
+import { findReelCode } from '@/instagram/reel-link';
+
 export type IntentKind = 'ignore' | 'id' | 'help' | 'ideas' | 'script' | 'review' | 'chat' | 'reload';
 export type MediaKind = 'video' | 'photo';
 
@@ -14,6 +16,8 @@ export type MessageIntent = {
   kind: IntentKind;
   text: string;
   media?: MediaRef;
+  /** Short code of an Instagram reel link in the message (or in the message it replies to). */
+  reelCode?: string;
   replyContext: string;
 };
 
@@ -94,13 +98,24 @@ function kindFromContent(addressed: boolean, hasMedia: boolean, text: string): I
   return text ? 'chat' : 'ignore';
 }
 
+function replyMedia(message: TelegramMessage, kind: IntentKind): MediaRef | undefined {
+  return kind === 'review' ? pickReplyMedia(message) : undefined;
+}
+
+function resolveReelCode(message: TelegramMessage, kind: IntentKind, ownCode: string | undefined): string | undefined {
+  if (ownCode || kind !== 'review') return ownCode;
+  return findReelCode(readReplyContext(message));
+}
+
 /** Decides what a Telegram message is asking for. In groups only commands, mentions and replies to the bot count. */
 export function parseMessage(message: TelegramMessage, bot: BotIdentity): MessageIntent {
   const text = readText(message);
   const { command, rest } = splitCommand(text, bot.username);
   const body = command ? rest : stripMention(text, bot.username);
   const ownMedia = pickMedia(message);
-  const kind = kindFromCommand(command) ?? kindFromContent(isAddressed(message, text, bot), ownMedia !== undefined, body);
-  const media = ownMedia ?? (kind === 'review' ? pickReplyMedia(message) : undefined);
-  return { kind, text: body, media, replyContext: readReplyContext(message) };
+  const ownCode = findReelCode(body);
+  const hasWork = ownMedia !== undefined || ownCode !== undefined;
+  const kind = kindFromCommand(command) ?? kindFromContent(isAddressed(message, text, bot), hasWork, body);
+  const media = ownMedia ?? replyMedia(message, kind);
+  return { kind, text: body, media, reelCode: resolveReelCode(message, kind, ownCode), replyContext: readReplyContext(message) };
 }

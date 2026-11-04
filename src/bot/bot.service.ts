@@ -4,7 +4,6 @@ import type { IntentKind, MediaRef, MessageIntent } from '@/bot/command-parser';
 import type { BotIdentity, TelegramMessage, TelegramUpdate } from '@/telegram/telegram.types';
 
 import { AssistantService } from '@/assistant/assistant.service';
-import { VideoReviewService } from '@/assistant/video-review.service';
 import {
   buildHelpText,
   buildIdText,
@@ -12,6 +11,7 @@ import {
   buildReloadedText,
   BUSY_TEXT,
   ERROR_TEXT,
+  FETCHING_REEL_TEXT,
   LIMIT_REACHED_TEXT,
   NEED_MEDIA_TEXT,
   PROCESSING_TEXT,
@@ -20,6 +20,7 @@ import {
 } from '@/bot/bot.texts';
 import { parseMessage } from '@/bot/command-parser';
 import { RateLimiter } from '@/bot/rate-limiter';
+import { ReviewDesk } from '@/bot/review-desk.service';
 import { envConfig } from '@/config/env.config';
 import { MAX_DOWNLOAD_BYTES } from '@/telegram/telegram.constants';
 import { TelegramApiService } from '@/telegram/telegram-api.service';
@@ -49,7 +50,7 @@ export class BotService {
   constructor(
     private readonly api: TelegramApiService,
     private readonly assistant: AssistantService,
-    private readonly reviews: VideoReviewService,
+    private readonly reviews: ReviewDesk,
   ) {}
 
   setIdentity(identity: BotIdentity): void {
@@ -108,22 +109,32 @@ export class BotService {
   }
 
   private async reviewMedia(message: TelegramMessage, intent: MessageIntent): Promise<void> {
-    const media = intent.media;
-    const problem = validateMedia(media);
-    if (!media || problem) return this.reply(message, problem ?? NEED_MEDIA_TEXT);
+    const problem = intent.media || !intent.reelCode ? validateMedia(intent.media) : undefined;
+    if (problem) return this.reply(message, problem);
     if (this.activeReviews >= MAX_PARALLEL_REVIEWS) return this.reply(message, BUSY_TEXT);
     this.activeReviews += 1;
     try {
-      await this.runReview(message, media, intent.text);
+      await this.runReviewTask(message, intent);
     } finally {
       this.activeReviews -= 1;
     }
   }
 
+  private runReviewTask(message: TelegramMessage, intent: MessageIntent): Promise<void> {
+    if (intent.media) return this.runReview(message, intent.media, intent.text);
+    return this.runReelReview(message, intent.reelCode ?? '');
+  }
+
+  private async runReelReview(message: TelegramMessage, code: string): Promise<void> {
+    await this.reply(message, FETCHING_REEL_TEXT);
+    const answer = await this.withTyping(message.chat.id, () => this.reviews.link(code));
+    await this.reply(message, answer);
+  }
+
   private async runReview(message: TelegramMessage, media: MediaRef, caption: string): Promise<void> {
     await this.reply(message, PROCESSING_TEXT);
     const buffer = await this.api.downloadFile(media.fileId);
-    const answer = await this.withTyping(message.chat.id, () => this.reviews.review({ media: buffer, kind: media.kind, caption }));
+    const answer = await this.withTyping(message.chat.id, () => this.reviews.file({ media: buffer, kind: media.kind, caption }));
     await this.reply(message, answer);
   }
 

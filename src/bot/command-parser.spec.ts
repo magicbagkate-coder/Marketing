@@ -49,4 +49,19 @@ describe('parseMessage', () => {
     const intent = parseMessage(makeMessage({ caption: '/review', photo }), BOT);
     expect(intent.media).toMatchObject({ fileId: 'big', kind: 'photo' });
   });
+
+  it('reviews an Instagram reel link sent with /review or with a mention', () => {
+    const link = 'https://www.instagram.com/reel/DfUMSnPx13g/';
+    expect(parseMessage(makeMessage({ text: `/review ${link}` }), BOT)).toMatchObject({ kind: 'review', reelCode: 'DfUMSnPx13g' });
+    expect(parseMessage(makeMessage({ text: `@magicbag_trends_bot оцени ${link}` }), BOT)).toMatchObject({ kind: 'review', reelCode: 'DfUMSnPx13g' });
+  });
+
+  it('takes the reel link from the message that /review replies to', () => {
+    const reply = makeMessage({ text: '/review', reply_to_message: makeMessage({ text: 'https://www.instagram.com/reel/AbC/' }) });
+    expect(parseMessage(reply, BOT)).toMatchObject({ kind: 'review', reelCode: 'AbC' });
+  });
+
+  it('ignores a link in an unaddressed group message', () => {
+    expect(parseMessage(makeMessage({ text: 'смотрите https://www.instagram.com/reel/AbC/' }), BOT).kind).toBe('ignore');
+  });
 });

@@ -27,6 +27,8 @@ export type ReviewMaterial = {
   frames: Frame[];
   transcript: Transcript;
   caption: string;
+  /** Facts about an already published reel (account, date, likes, caption); replaces the employee caption. */
+  published?: string;
 };
 
 const TRANSCRIPT_NOTES: { [status: string]: string } = {
@@ -55,7 +57,8 @@ const describeCaption = (caption: string): string => (caption ? `Подпись 
 
 /** Everything Claude gets for a video review: facts, caption, speech, frames with time marks, and the answer format. */
 export function buildReviewContent(material: ReviewMaterial): Anthropic.ContentBlockParam[] {
-  const intro = [describeFormat(material.info), describeCaption(material.caption), describeTranscript(material.transcript)];
+  const context = material.published ?? describeCaption(material.caption);
+  const intro = [describeFormat(material.info), context, describeTranscript(material.transcript)];
   const frames = material.frames.flatMap((frame) => [textBlock(`Кадр на ${frame.second} с:`), imageBlock(frame.base64)]);
   return [textBlock(intro.join('\n')), textBlock('Кадры ролика по времени:'), ...frames, textBlock(REVIEW_INSTRUCTION)];
 }
