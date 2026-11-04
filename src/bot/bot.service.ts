@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import type { IntentKind, MediaRef, MessageIntent } from '@/bot/command-parser';
+import type { IntentKind, MediaRef, MessageIntent, OpenChat } from '@/bot/command-parser';
 import type { BotIdentity, TelegramMessage, TelegramUpdate } from '@/telegram/telegram.types';
 
 import { AssistantService } from '@/assistant/assistant.service';
@@ -30,6 +30,7 @@ const MAX_PARALLEL_REVIEWS = 2;
 const DAILY_LIMIT = 40;
 const TYPING_INTERVAL_MS = 4000;
 
+const openChat = (): OpenChat => ({ chatId: Number(envConfig.telegramChatId), userIds: envConfig.allowedUserIds });
 const senderId = (message: TelegramMessage): number => message.from?.id ?? 0;
 const describeFailure = (error: unknown): string => (String(error).includes('too big') ? VIDEO_TOO_BIG_TEXT : ERROR_TEXT);
 
@@ -69,7 +70,7 @@ export class BotService {
   }
 
   private async routeMessage(message: TelegramMessage): Promise<void> {
-    const intent = parseMessage(message, this.identity);
+    const intent = parseMessage(message, this.identity, openChat());
     if (intent.kind === 'ignore') return;
     const userId = senderId(message);
     const open = this.openReply(intent.kind, userId);
