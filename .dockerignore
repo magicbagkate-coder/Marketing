@@ -5,5 +5,7 @@ dist
 ai
 reports
 data
+knowledge
+state
 *.log
 *.tsbuildinfo

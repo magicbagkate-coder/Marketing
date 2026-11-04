@@ -16,6 +16,10 @@ reports/
 # sales exports from the stats agent (business data, never commit)
 data/
 
+# private knowledge base of the assistant (paid course texts, marketing research) and its runtime state
+knowledge/
+state/
+
 # logs
 *.log
 npm-debug.log*

@@ -7,7 +7,7 @@ import { ClaudeDigestService } from '@/digest/claude-digest.service';
 import { describeClaudeFailure } from '@/digest/claude-failure';
 import { NO_NEWS_MESSAGE } from '@/digest/digest.texts';
 import { buildFailedSourcesLine, buildPlainDigest } from '@/digest/digest-format';
-import { TelegramService } from '@/telegram/telegram.service';
+import { DigestPublisher } from '@/digest/digest-publisher';
 
 @Injectable()
 export class DigestService {
@@ -16,7 +16,7 @@ export class DigestService {
   constructor(
     private readonly collector: NewsCollectorService,
     private readonly claude: ClaudeDigestService,
-    private readonly telegram: TelegramService,
+    private readonly publisher: DigestPublisher,
   ) {}
 
   /** Collects the last day of news, writes the digest and posts it to Telegram. */
@@ -25,7 +25,8 @@ export class DigestService {
     this.logger.log(`Collected ${items.length} items, ${failedSources.length} sources failed`);
     const body = items.length === 0 ? NO_NEWS_MESSAGE : await this.writeBody(items);
     const failedLine = buildFailedSourcesLine(failedSources);
-    await this.telegram.sendDigest([body, failedLine].filter(Boolean).join('\n\n'));
+    const message = [body, failedLine].filter(Boolean).join('\n\n');
+    await this.publisher.publish(message);
   }
 
   private async writeBody(items: NewsItem[]): Promise<string> {

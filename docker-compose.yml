@@ -6,3 +6,8 @@ services:
     env_file: .env
     ports:
       - "7000:7000"
+    volumes:
+      # knowledge base (course texts, audience portrait, checklists): private, never in git
+      - ./knowledge:/app/knowledge:ro
+      # the latest digest, so the assistant can use today's trends
+      - ./state:/app/state
