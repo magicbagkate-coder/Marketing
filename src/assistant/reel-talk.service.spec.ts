@@ -1,5 +1,6 @@
 import type { ClaudeChatService } from '@/assistant/claude-chat.service';
 import type { KnowledgeService } from '@/assistant/knowledge.service';
+import type { DigestStore } from '@/digest/digest-store';
 
 import { ReelTalkService } from '@/assistant/reel-talk.service';
 
@@ -8,7 +9,8 @@ const REVIEW = { answer: 'Вердикт: доработать', digest: 'Рас
 function makeService(reply = 'Ответ по ролику'): { service: ReelTalkService; ask: jest.Mock } {
   const ask = jest.fn().mockResolvedValue(reply);
   const knowledge = { textFor: jest.fn().mockReturnValue('база знаний') } as unknown as KnowledgeService;
-  const service = new ReelTalkService({ ask } as unknown as ClaudeChatService, knowledge);
+  const digests = { load: jest.fn().mockResolvedValue('Сводка от 2026-11-04\nТренд: пастель') } as unknown as DigestStore;
+  const service = new ReelTalkService({ ask } as unknown as ClaudeChatService, knowledge, digests);
   return { service, ask };
 }
 
@@ -46,6 +48,7 @@ describe('ReelTalkService', () => {
     const sent = ask.mock.calls[0][0].messages;
     expect(sent[0].content).toContain('Расшифровка: привет');
     expect(sent.at(-1)).toEqual({ role: 'user', content: 'почему хук слабый?' });
+    expect(JSON.stringify(ask.mock.calls[0][0].system)).toContain('Тренд: пастель');
     expect(dossier.turns.map((turn) => turn.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
   });
 

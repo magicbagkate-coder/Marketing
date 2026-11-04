@@ -13,6 +13,11 @@ export class DigestPublisher {
 
   async publish(message: string): Promise<void> {
     await this.telegram.sendDigest(message);
-    await this.store.save(message);
+    await this.remember(message);
+  }
+
+  /** Keeps the digest for the assistant without posting anything to the group. */
+  remember(message: string): Promise<void> {
+    return this.store.save(message);
   }
 }

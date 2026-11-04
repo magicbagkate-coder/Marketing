@@ -7,6 +7,7 @@ import {
   IDEAS_INSTRUCTION,
   KNOWLEDGE_EMPTY,
   KNOWLEDGE_HEADER,
+  NO_TRENDS_NOTE,
   SCRIPT_INSTRUCTION,
   SYSTEM_PROMPT,
 } from '@/assistant/assistant.texts';
@@ -37,6 +38,6 @@ export function buildSystemBlocks(knowledge: string): Anthropic.TextBlockParam[]
 export function buildTaskPrompt(input: TaskInput): string {
   const parts = [INSTRUCTIONS[input.kind], `Запрос сотрудника: ${input.text || DEFAULT_REQUESTS[input.kind]}`];
   if (input.replyContext) parts.push(`Сообщение, на которое ответил сотрудник:\n${clip(input.replyContext, CONTEXT_LIMIT)}`);
-  if (input.trends) parts.push(`Тренды дня из утренней сводки:\n${clip(input.trends, TRENDS_LIMIT)}`);
+  parts.push(input.trends ? `Тренды дня из утренней сводки:\n${clip(input.trends, TRENDS_LIMIT)}` : NO_TRENDS_NOTE);
   return parts.join('\n\n');
 }

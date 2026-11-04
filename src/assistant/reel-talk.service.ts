@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import type { MemoryTurn } from '@/assistant/chat-memory';
 import type { ReviewResult } from '@/assistant/review-result';
+import type Anthropic from '@anthropic-ai/sdk';
 
 import { FOLLOW_UP_ACK, FOLLOW_UP_RULES } from '@/assistant/assistant.texts';
 import { buildSystemBlocks } from '@/assistant/assistant-prompts';
@@ -9,6 +10,7 @@ import { ClaudeChatService } from '@/assistant/claude-chat.service';
 import { KnowledgeService } from '@/assistant/knowledge.service';
 import { clip } from '@/common/clip';
 import { envConfig } from '@/config/env.config';
+import { DigestStore } from '@/digest/digest-store';
 
 /** What the bot remembers about a reviewed video: the facts as text and the conversation about it. */
 export type ReelDossier = {
@@ -28,6 +30,7 @@ const REPLY_TTL_MS = 6 * 60 * 60 * 1000;
 const PRIVATE_TTL_MS = 30 * 60 * 1000;
 const MAX_REMEMBERED_MESSAGES = 300;
 const MAX_TURNS = 12;
+const TRENDS_LIMIT = 5000;
 const MAX_TURN_CHARS = 6000;
 const FOLLOW_UP_MAX_TOKENS = 6000;
 const REVIEW_REQUEST = 'Разбери ролик.';
@@ -47,6 +50,7 @@ export class ReelTalkService {
   constructor(
     private readonly claude: ClaudeChatService,
     private readonly knowledge: KnowledgeService,
+    private readonly digests: DigestStore,
   ) {}
 
   /** Starts a dossier from a finished review and links the bot's messages to it. */
@@ -77,7 +81,7 @@ export class ReelTalkService {
   async answer(dossier: ReelDossier, question: string): Promise<string> {
     const reply = await this.claude.ask({
       model: envConfig.modelCreative,
-      system: [...buildSystemBlocks(this.knowledge.textFor('review')), { type: 'text', text: FOLLOW_UP_RULES }],
+      system: [...buildSystemBlocks(this.knowledge.textFor('review')), { type: 'text', text: FOLLOW_UP_RULES }, ...(await this.trendsBlock())],
       messages: [
         { role: 'user', content: `Материалы ролика (кадры не сохранены):\n${dossier.digest}` },
         { role: 'assistant', content: FOLLOW_UP_ACK },
@@ -89,6 +93,12 @@ export class ReelTalkService {
     const turns = [...dossier.turns, { role: 'user' as const, content: clip(question, MAX_TURN_CHARS) }, { role: 'assistant' as const, content: clip(reply, MAX_TURN_CHARS) }];
     dossier.turns = turns.slice(-MAX_TURNS);
     return reply;
+  }
+
+  /** Today's trends, so that a question like «предложи идею по сегодняшним трендам» works inside a talk about a video too. */
+  private async trendsBlock(): Promise<Anthropic.TextBlockParam[]> {
+    const trends = await this.digests.load();
+    return trends ? [{ type: 'text', text: `Тренды дня из утренней сводки (используй, если сотрудница просит учесть тренды):\n${clip(trends, TRENDS_LIMIT)}` }] : [];
   }
 
   private prune(): void {
