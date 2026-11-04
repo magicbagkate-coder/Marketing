@@ -36,6 +36,8 @@ export type TelegramMessage = {
   animation?: TelegramFileRef;
   document?: TelegramFileRef;
   photo?: TelegramPhotoSize[];
+  /** Photos sent as one album arrive as separate messages with the same group id. */
+  media_group_id?: string;
   reply_to_message?: TelegramMessage;
 };
 

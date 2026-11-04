@@ -6,21 +6,25 @@ import type { IntentKind, MediaRef, MessageIntent } from '@/bot/command-parser';
 import type { BotIdentity, TelegramMessage, TelegramUpdate } from '@/telegram/telegram.types';
 
 import { AssistantService } from '@/assistant/assistant.service';
+import { AlbumBuffer } from '@/bot/album-buffer';
 import {
   buildHelpText,
   buildIdText,
+  buildLookingText,
   buildNoAccessText,
   buildReloadedText,
   BUSY_TEXT,
   ERROR_TEXT,
   FETCHING_REEL_TEXT,
+  IMAGE_TOO_BIG_TEXT,
   LIMIT_REACHED_TEXT,
   NEED_MEDIA_TEXT,
+  NEED_PICTURES_TEXT,
   PROCESSING_TEXT,
   VIDEO_TOO_BIG_TEXT,
   VIDEO_TOO_LONG_TEXT,
 } from '@/bot/bot.texts';
-import { parseMessage } from '@/bot/command-parser';
+import { parseAlbum, parseMessage } from '@/bot/command-parser';
 import { RateLimiter } from '@/bot/rate-limiter';
 import { ReviewDesk } from '@/bot/review-desk.service';
 import { envConfig } from '@/config/env.config';
@@ -41,6 +45,11 @@ function validateMedia(media: MediaRef | undefined): string | undefined {
   return media.durationSec > MAX_VIDEO_SECONDS ? VIDEO_TOO_LONG_TEXT : undefined;
 }
 
+function validateLooks(looks: MediaRef[]): string | undefined {
+  if (looks.length === 0) return NEED_PICTURES_TEXT;
+  return looks.some((look) => look.sizeBytes > MAX_DOWNLOAD_BYTES) ? IMAGE_TOO_BIG_TEXT : undefined;
+}
+
 /** Decides who may ask what and runs the task: ideas, scripts, chat, video review. Works in the group and in private chats. */
 @Injectable()
 export class BotService {
@@ -48,6 +57,7 @@ export class BotService {
   private readonly limiter = new RateLimiter(DAILY_LIMIT);
   private identity: BotIdentity = { id: 0, username: '' };
   private activeReviews = 0;
+  private readonly albums = new AlbumBuffer((messages) => void this.routeAlbum(messages));
 
   constructor(
     private readonly api: TelegramApiService,
@@ -61,17 +71,25 @@ export class BotService {
 
   async handleUpdate(update: TelegramUpdate): Promise<void> {
     const message = update.message;
-    if (!message) return;
+    if (!message || this.albums.add(message)) return;
+    await this.guarded(message, () => this.routeMessage(message, parseMessage(message, this.identity)));
+  }
+
+  /** All the pictures of an album have arrived: they are one request, decided by the album's caption. */
+  private routeAlbum(messages: TelegramMessage[]): Promise<void> {
+    return this.guarded(messages[0], () => this.routeMessage(messages[0], parseAlbum(messages, this.identity)));
+  }
+
+  private async guarded(message: TelegramMessage, task: () => Promise<void>): Promise<void> {
     try {
-      await this.routeMessage(message);
+      await task();
     } catch (error) {
       this.logger.error(`Message handling failed: ${String(error)}`);
       await this.safeReply(message, describeFailure(error));
     }
   }
 
-  private async routeMessage(message: TelegramMessage): Promise<void> {
-    const intent = parseMessage(message, this.identity);
+  private async routeMessage(message: TelegramMessage, intent: MessageIntent): Promise<void> {
     if (intent.kind === 'ignore') return;
     const userId = senderId(message);
     const open = this.openReply(intent.kind, userId);
@@ -97,6 +115,8 @@ export class BotService {
     switch (intent.kind) {
       case 'review':
         return this.reviewMedia(message, intent);
+      case 'look':
+        return this.lookAtPictures(message, intent);
       case 'reload':
         return this.reloadKnowledge(message);
       default:
@@ -130,13 +150,33 @@ export class BotService {
   private async reviewMedia(message: TelegramMessage, intent: MessageIntent): Promise<void> {
     const problem = intent.media || !intent.reelCode ? validateMedia(intent.media) : undefined;
     if (problem) return this.reply(message, problem);
+    await this.withSlot(message, () => this.runReviewTask(message, intent));
+  }
+
+  /** Several heavy tasks (video, many pictures) at once would be too slow and costly: only a few run in parallel. */
+  private async withSlot(message: TelegramMessage, task: () => Promise<void>): Promise<void> {
     if (this.activeReviews >= MAX_PARALLEL_REVIEWS) return this.reply(message, BUSY_TEXT);
     this.activeReviews += 1;
     try {
-      await this.runReviewTask(message, intent);
+      await task();
     } finally {
       this.activeReviews -= 1;
     }
+  }
+
+  /** Pictures with a question (which bag suits the audience better): answered as a question, not as a reel review. */
+  private async lookAtPictures(message: TelegramMessage, intent: MessageIntent): Promise<void> {
+    const looks = intent.looks ?? [];
+    const problem = validateLooks(looks);
+    if (problem) return this.reply(message, problem);
+    await this.withSlot(message, () => this.runLook(message, intent, looks));
+  }
+
+  private async runLook(message: TelegramMessage, intent: MessageIntent, looks: MediaRef[]): Promise<void> {
+    await this.reply(message, buildLookingText(looks.length));
+    const images = await Promise.all(looks.map((look) => this.api.downloadFile(look.fileId)));
+    const request = { images, question: intent.text, replyContext: intent.replyContext };
+    await this.sendReview(message, await this.withTyping(message.chat.id, () => this.reviews.look(request)));
   }
 
   private runReviewTask(message: TelegramMessage, intent: MessageIntent): Promise<void> {

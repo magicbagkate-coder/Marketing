@@ -1,8 +1,10 @@
 import type { VideoInfo } from '@/media/ffmpeg';
+import type { ImageMediaType } from '@/media/image-type';
 import type Anthropic from '@anthropic-ai/sdk';
 
 import {
   FAILED_AUDIO_NOTE,
+  LOOK_INSTRUCTION,
   NO_AUDIO_NOTE,
   NO_KEY_NOTE,
   PUBLISHED_REVIEW_INSTRUCTION,
@@ -44,9 +46,9 @@ const TRANSCRIPT_NOTES: { [status: string]: string } = {
 
 const textBlock = (text: string): Anthropic.TextBlockParam => ({ type: 'text', text });
 
-const imageBlock = (base64: string): Anthropic.ImageBlockParam => ({
+const imageBlock = (base64: string, mediaType: ImageMediaType = 'image/jpeg'): Anthropic.ImageBlockParam => ({
   type: 'image',
-  source: { type: 'base64', media_type: 'image/jpeg', 'data': base64 },
+  source: { type: 'base64', media_type: mediaType, 'data': base64 },
 });
 
 const describeFormat = (info: VideoInfo): string => {
@@ -80,6 +82,27 @@ export function buildReviewContent(material: ReviewMaterial): Anthropic.ContentB
   const frames = material.frames.flatMap((frame) => [textBlock(`Кадр на ${frame.second} с:`), imageBlock(frame.base64)]);
   const instruction = material.published ? PUBLISHED_REVIEW_INSTRUCTION : REVIEW_INSTRUCTION;
   return [textBlock(describeFacts(material)), textBlock('Кадры ролика по времени:'), ...frames, ...statsBlocks(material.screenshot), textBlock(instruction)];
+}
+
+export type LookImage = {
+  base64: string;
+  mediaType: ImageMediaType;
+};
+
+export const DEFAULT_LOOK_QUESTION = 'Оцени, что на этих картинках, и скажи, что из этого интереснее нашей аудитории и почему.';
+
+/** What the employee asked about her pictures, as text that is also kept for follow-up questions. */
+export function describeLook(count: number, question: string, replyContext: string): string {
+  const parts = [`Сотрудница прислала картинок: ${count}. Они пронумерованы по порядку отправки, от 1 до ${count}.`];
+  parts.push(`Запрос сотрудницы: ${question || DEFAULT_LOOK_QUESTION}`);
+  if (replyContext) parts.push(`Сообщение, на которое она отвечала:\n${replyContext}`);
+  return parts.join('\n');
+}
+
+/** Pictures with a question (which bag suits the audience better, compare covers): numbered images, then the instruction. */
+export function buildLookContent(images: LookImage[], facts: string): Anthropic.ContentBlockParam[] {
+  const numbered = images.flatMap((image, index) => [textBlock(`Картинка ${index + 1}:`), imageBlock(image.base64, image.mediaType)]);
+  return [textBlock(facts), ...numbered, textBlock(LOOK_INSTRUCTION)];
 }
 
 /** Review of a single picture (cover or still), no sound. */

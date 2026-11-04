@@ -83,7 +83,7 @@ export class ReelTalkService {
       model: envConfig.modelCreative,
       system: [...buildSystemBlocks(this.knowledge.textFor('review')), { type: 'text', text: FOLLOW_UP_RULES }, ...(await this.trendsBlock())],
       messages: [
-        { role: 'user', content: `Материалы ролика (кадры не сохранены):\n${dossier.digest}` },
+        { role: 'user', content: `Сохранённые материалы (видео и картинки не сохранены):\n${dossier.digest}` },
         { role: 'assistant', content: FOLLOW_UP_ACK },
         ...dossier.turns,
         { role: 'user', content: question },

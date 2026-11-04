@@ -1,6 +1,6 @@
 import type { TelegramMessage } from '@/telegram/telegram.types';
 
-import { parseMessage } from '@/bot/command-parser';
+import { parseAlbum, parseMessage } from '@/bot/command-parser';
 
 const BOT = { id: 999, username: 'magicbag_trends_bot' };
 
@@ -73,6 +73,54 @@ describe('parseMessage', () => {
     const intent = parseMessage(makeMessage({ caption: '/review', photo }), BOT);
     expect(intent.media).toMatchObject({ fileId: 'cover' });
     expect(intent.screenshot).toBeUndefined();
+  });
+
+  describe('pictures with a question', () => {
+    const photo = (id: string) => [{ file_id: id, width: 720, height: 1280 }];
+
+    it('answers pictures sent with a question as a question, not as a reel review', () => {
+      const intent = parseMessage(makeMessage({ caption: '@magicbag_trends_bot какая сумка интереснее нашей аудитории?', photo: photo('a') }), BOT);
+      expect(intent).toMatchObject({ kind: 'look', text: 'какая сумка интереснее нашей аудитории?' });
+      expect(intent.looks).toHaveLength(1);
+      expect(intent.media).toBeUndefined();
+    });
+
+    it('treats pictures sent as files like photos', () => {
+      const document = { file_id: 'doc', mime_type: 'image/png', file_size: 1000 };
+      const intent = parseMessage(makeMessage({ caption: '@magicbag_trends_bot что скажешь?', document }), BOT);
+      expect(intent).toMatchObject({ kind: 'look', looks: [{ fileId: 'doc', kind: 'photo' }] });
+    });
+
+    it('reviews a replied picture when the bot is mentioned', () => {
+      const reply = makeMessage({ text: '@magicbag_trends_bot что скажешь?', reply_to_message: makeMessage({ photo: photo('r') }) });
+      expect(parseMessage(reply, BOT)).toMatchObject({ kind: 'look', looks: [{ fileId: 'r' }] });
+    });
+
+    it('keeps a video as a review even without the command', () => {
+      const video = { file_id: 'v', duration: 20 };
+      expect(parseMessage(makeMessage({ caption: '@magicbag_trends_bot посмотри', video }), BOT)).toMatchObject({ kind: 'review' });
+    });
+
+    it('gathers all pictures of an album and takes the question from the caption', () => {
+      const album = [
+        makeMessage({ message_id: 1, photo: photo('a'), media_group_id: 'g' }),
+        makeMessage({ message_id: 2, photo: photo('b'), media_group_id: 'g', caption: '@magicbag_trends_bot какая интереснее?' }),
+        makeMessage({ message_id: 3, photo: photo('c'), media_group_id: 'g' }),
+      ];
+      const intent = parseAlbum(album, BOT);
+      expect(intent).toMatchObject({ kind: 'look', text: 'какая интереснее?' });
+      expect(intent.looks?.map((look) => look.fileId)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('treats an album with /review as pictures to compare, and ignores an unaddressed one', () => {
+      const withCommand = [
+        makeMessage({ message_id: 1, photo: photo('a'), media_group_id: 'g', caption: '/review' }),
+        makeMessage({ message_id: 2, photo: photo('b'), media_group_id: 'g' }),
+      ];
+      expect(parseAlbum(withCommand, BOT).kind).toBe('look');
+      const quiet = [makeMessage({ photo: photo('a'), media_group_id: 'g' }), makeMessage({ message_id: 2, photo: photo('b'), media_group_id: 'g' })];
+      expect(parseAlbum(quiet, BOT).kind).toBe('ignore');
+    });
   });
 
   it('ignores a link in an unaddressed group message', () => {

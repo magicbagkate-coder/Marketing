@@ -12,11 +12,12 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { buildSystemBlocks } from '@/assistant/assistant-prompts';
 import { ClaudeChatService } from '@/assistant/claude-chat.service';
 import { KnowledgeService } from '@/assistant/knowledge.service';
-import { buildPhotoContent, buildReviewContent, describeFacts, describePhotoFacts } from '@/assistant/review-content';
+import { buildLookContent, buildPhotoContent, buildReviewContent, describeFacts, describeLook, describePhotoFacts } from '@/assistant/review-content';
 import { buildDigest, splitFramesLog } from '@/assistant/review-result';
 import { envConfig } from '@/config/env.config';
 import { extractAudio, extractFrame, probeVideo } from '@/media/ffmpeg';
 import { pickFrameTimes } from '@/media/frame-times';
+import { detectImageType } from '@/media/image-type';
 import { transcribeAudio } from '@/media/transcriber';
 
 export type ReviewInput = {
@@ -28,6 +29,14 @@ export type ReviewInput = {
   /** Screenshot of the reel's Instagram statistics (views, reach, saves) sent by the employee. */
   screenshot?: Buffer;
 };
+
+export type LookInput = {
+  images: Buffer[];
+  question: string;
+  replyContext: string;
+};
+
+const LOOK_MAX_TOKENS = 8000;
 
 type PreparedReview = {
   content: Anthropic.ContentBlockParam[];
@@ -68,6 +77,21 @@ export class VideoReviewService {
     } finally {
       await rm(workDir, { recursive: true, force: true });
     }
+  }
+
+  /** Answers a question about several pictures (choose the best product, compare covers) against the audience portrait. */
+  async look(input: LookInput): Promise<ReviewResult> {
+    const facts = describeLook(input.images.length, input.question, input.replyContext);
+    const images = input.images.map((image) => ({ base64: image.toString('base64'), mediaType: detectImageType(image) }));
+    const raw = await this.claude.ask({
+      model: envConfig.modelEvaluate,
+      system: buildSystemBlocks(this.knowledge.textFor('review')),
+      messages: [{ role: 'user', content: buildLookContent(images, facts) }],
+      maxTokens: LOOK_MAX_TOKENS,
+    });
+    const { answer, framesLog } = splitFramesLog(raw);
+    this.logger.log(`Look at ${images.length} pictures`);
+    return { answer, digest: buildDigest(facts, framesLog) };
   }
 
   private async prepareVideo(input: ReviewInput, workDir: string): Promise<PreparedReview> {

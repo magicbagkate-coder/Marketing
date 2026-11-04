@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import type { DossierLookup, ReelDossier } from '@/assistant/reel-talk.service';
 import type { ReviewResult } from '@/assistant/review-result';
-import type { ReviewInput } from '@/assistant/video-review.service';
+import type { LookInput, ReviewInput } from '@/assistant/video-review.service';
 
 import { ReelTalkService } from '@/assistant/reel-talk.service';
 import { VideoReviewService } from '@/assistant/video-review.service';
@@ -21,6 +21,10 @@ export class ReviewDesk {
 
   file(input: ReviewInput): Promise<ReviewResult> {
     return this.reviews.review(input);
+  }
+
+  look(input: LookInput): Promise<ReviewResult> {
+    return this.reviews.look(input);
   }
 
   /** Returns the review; when the reel cannot be found or downloaded, the answer explains why and the digest is empty. */

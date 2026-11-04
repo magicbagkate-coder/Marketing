@@ -1,4 +1,4 @@
-import { buildPhotoContent, buildReviewContent } from '@/assistant/review-content';
+import { buildLookContent, buildPhotoContent, buildReviewContent, describeLook } from '@/assistant/review-content';
 
 const textOf = (block: { type: string; text?: string }): string => block.text ?? '';
 const INFO = { durationSec: 21.5, width: 1080, height: 1920, hasAudio: true };
@@ -61,6 +61,28 @@ describe('buildReviewContent for a published reel', () => {
   it('uses the draft instruction for an uploaded file', () => {
     const blocks = buildReviewContent({ info: INFO, caption: '', transcript: { status: 'silent', text: '' }, frames: [] });
     expect(textOf(blocks[blocks.length - 1])).toContain('ЧЕРНОВИК');
+  });
+});
+
+describe('buildLookContent', () => {
+  it('numbers the pictures and answers the question, not the reel format', () => {
+    const facts = describeLook(2, 'какая сумка интереснее?', '');
+    const blocks = buildLookContent(
+      [
+        { base64: 'AAA', mediaType: 'image/jpeg' },
+        { base64: 'BBB', mediaType: 'image/png' },
+      ],
+      facts,
+    );
+    expect(blocks.map((block) => block.type)).toEqual(['text', 'text', 'image', 'text', 'image', 'text']);
+    expect(textOf(blocks[0])).toContain('какая сумка интереснее?');
+    expect(textOf(blocks[3])).toBe('Картинка 2:');
+    expect(textOf(blocks[5])).toContain('НЕ разбор рилса');
+    expect(blocks[4]).toMatchObject({ source: { media_type: 'image/png' } });
+  });
+
+  it('asks a default question when the caption is empty', () => {
+    expect(describeLook(1, '', '')).toContain('что из этого интереснее нашей аудитории');
   });
 });
 
