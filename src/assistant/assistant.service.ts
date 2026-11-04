@@ -45,7 +45,7 @@ export class AssistantService {
     });
     const reply = await this.claude.ask({
       model: envConfig.modelCreative,
-      system: buildSystemBlocks(this.knowledge.get().text),
+      system: buildSystemBlocks(this.knowledge.textFor('creative')),
       messages: [...this.memory.history(request.chatId), { role: 'user', content: prompt }],
       maxTokens: CREATIVE_MAX_TOKENS,
     });

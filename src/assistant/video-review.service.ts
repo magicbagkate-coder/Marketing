@@ -42,7 +42,7 @@ export class VideoReviewService {
       const content = input.kind === 'photo' ? buildPhotoContent(input.media.toString('base64'), input.caption) : await this.prepareVideo(input, workDir);
       return await this.claude.ask({
         model: envConfig.modelEvaluate,
-        system: buildSystemBlocks(this.knowledge.get().text),
+        system: buildSystemBlocks(this.knowledge.textFor('review')),
         messages: [{ role: 'user', content }],
         maxTokens: REVIEW_MAX_TOKENS,
       });

@@ -18,6 +18,7 @@ data/
 
 # private knowledge base of the assistant (paid course texts, marketing research) and its runtime state
 knowledge/
+materials/
 state/
 
 # logs

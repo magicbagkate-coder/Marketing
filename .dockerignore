@@ -6,6 +6,7 @@ ai
 reports
 data
 knowledge
+materials
 state
 *.log
 *.tsbuildinfo
