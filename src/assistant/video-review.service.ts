@@ -23,6 +23,8 @@ export type ReviewInput = {
   caption: string;
   /** Set when the video is one of our published reels: facts and caption taken from Instagram. */
   published?: string;
+  /** Screenshot of the reel's Instagram statistics (views, reach, saves) sent by the employee. */
+  screenshot?: Buffer;
 };
 
 const MAX_FRAMES = 12;
@@ -60,7 +62,8 @@ export class VideoReviewService {
     const frames = await this.extractFrames(videoPath, info, workDir);
     const transcript = await this.recognizeSpeech(videoPath, info, workDir);
     this.logger.log(`Video review: ${info.durationSec.toFixed(1)} s, ${frames.length} frames, speech ${transcript.status}`);
-    return buildReviewContent({ info, frames, transcript, caption: input.caption, published: input.published });
+    const screenshot = input.screenshot?.toString('base64');
+    return buildReviewContent({ info, frames, transcript, caption: input.caption, published: input.published, screenshot });
   }
 
   private async extractFrames(videoPath: string, info: VideoInfo, workDir: string): Promise<Frame[]> {

@@ -20,10 +20,10 @@ export class ReviewDesk {
   }
 
   /** Returns the review, or a short explanation when the reel cannot be found or downloaded. */
-  async link(code: string, message: string): Promise<string> {
+  async link(code: string, message: string, screenshot?: Buffer): Promise<string> {
     const reel = await this.reels.fetchReel(code);
     if (reel.problem) return REEL_PROBLEM_TEXTS[reel.problem];
     const notes = stripReelLinks(message);
-    return this.reviews.review({ media: reel.video, kind: 'video', caption: notes, published: reel.published });
+    return this.reviews.review({ media: reel.video, kind: 'video', caption: notes, published: reel.published, screenshot });
   }
 }

@@ -36,7 +36,7 @@ export function describePublished(post: OwnPost, now: Date = new Date()): string
   const caption = post.caption.trim().slice(0, CAPTION_LIMIT);
   return [
     `Это уже опубликованный рилс аккаунта @${post.username}, дата публикации ${formatDate(post.publishedAt)}.`,
-    `Лайков: ${post.likes}, комментариев: ${post.comments}. Просмотры, охват, сохранения и продажи из Instagram не приходят: если сотрудник их не написал, их нет.`,
+    `Лайков: ${post.likes}, комментариев: ${post.comments}. Просмотры, охват, сохранения и продажи из Instagram автоматически не приходят: они есть только в скриншоте статистики или в словах сотрудника, если те приложены.`,
     describeBaseline(post),
     describeAge(post, now),
     caption ? `Подпись под рилсом:\n${caption}` : 'Подписи под рилсом нет.',

@@ -45,6 +45,19 @@ describe('buildReviewContent for a published reel', () => {
     expect(textOf(blocks[blocks.length - 1])).toContain('УЖЕ ОПУБЛИКОВАННЫЙ');
   });
 
+  it('adds the statistics screenshot as a labelled image before the instruction', () => {
+    const blocks = buildReviewContent({
+      info: INFO,
+      caption: '',
+      published: 'Опубликованный рилс.',
+      screenshot: 'SSS',
+      transcript: { status: 'silent', text: '' },
+      frames: [],
+    });
+    expect(blocks.map((block) => block.type)).toEqual(['text', 'text', 'text', 'image', 'text']);
+    expect(textOf(blocks[2])).toContain('Скриншот статистики');
+  });
+
   it('uses the draft instruction for an uploaded file', () => {
     const blocks = buildReviewContent({ info: INFO, caption: '', transcript: { status: 'silent', text: '' }, frames: [] });
     expect(textOf(blocks[blocks.length - 1])).toContain('ЧЕРНОВИК');

@@ -9,6 +9,7 @@ import {
   REVIEW_INSTRUCTION,
   REVIEW_PHOTO_INTRO,
   SILENT_AUDIO_NOTE,
+  STATS_SCREENSHOT_NOTE,
 } from '@/assistant/assistant.texts';
 
 export type TranscriptStatus = 'ok' | 'no-audio' | 'no-key' | 'failed' | 'silent';
@@ -30,6 +31,8 @@ export type ReviewMaterial = {
   caption: string;
   /** Facts about an already published reel (account, date, likes, caption); replaces the employee caption. */
   published?: string;
+  /** Base64 JPEG of the statistics screenshot from Instagram. */
+  screenshot?: string;
 };
 
 const TRANSCRIPT_NOTES: { [status: string]: string } = {
@@ -60,13 +63,17 @@ const describeCaption = (caption: string): string => (caption ? `Подпись 
 const describePublishedContext = (published: string, notes: string): string =>
   notes ? `${published}\nДописал сотрудник (цифры отсюда достоверны, учти их при оценке): ${notes}` : published;
 
+/** The statistics screenshot, if the employee attached one: Claude reads the numbers from the picture. */
+const statsBlocks = (screenshot: string | undefined): Anthropic.ContentBlockParam[] =>
+  screenshot ? [textBlock(STATS_SCREENSHOT_NOTE), imageBlock(screenshot)] : [];
+
 /** Everything Claude gets for a video review: facts, caption, speech, frames with time marks, and the answer format. */
 export function buildReviewContent(material: ReviewMaterial): Anthropic.ContentBlockParam[] {
   const context = material.published ? describePublishedContext(material.published, material.caption) : describeCaption(material.caption);
   const intro = [describeFormat(material.info), context, describeTranscript(material.transcript)];
   const frames = material.frames.flatMap((frame) => [textBlock(`Кадр на ${frame.second} с:`), imageBlock(frame.base64)]);
   const instruction = material.published ? PUBLISHED_REVIEW_INSTRUCTION : REVIEW_INSTRUCTION;
-  return [textBlock(intro.join('\n')), textBlock('Кадры ролика по времени:'), ...frames, textBlock(instruction)];
+  return [textBlock(intro.join('\n')), textBlock('Кадры ролика по времени:'), ...frames, ...statsBlocks(material.screenshot), textBlock(instruction)];
 }
 
 /** Review of a single picture (cover or still), no sound. */

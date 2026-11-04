@@ -18,6 +18,8 @@ export type MessageIntent = {
   media?: MediaRef;
   /** Short code of an Instagram reel link in the message (or in the message it replies to). */
   reelCode?: string;
+  /** A photo sent together with a reel link is a screenshot of the reel's Instagram statistics, not a picture to review. */
+  screenshot?: MediaRef;
   replyContext: string;
 };
 
@@ -102,6 +104,13 @@ function replyMedia(message: TelegramMessage, kind: IntentKind): MediaRef | unde
   return kind === 'review' ? pickReplyMedia(message) : undefined;
 }
 
+type ResolvedMedia = { media?: MediaRef; screenshot?: MediaRef };
+
+function resolveMedia(message: TelegramMessage, kind: IntentKind, reelCode: string | undefined): ResolvedMedia {
+  const found = pickMedia(message) ?? replyMedia(message, kind);
+  return reelCode !== undefined && found?.kind === 'photo' ? { screenshot: found } : { media: found };
+}
+
 function resolveReelCode(message: TelegramMessage, kind: IntentKind, ownCode: string | undefined): string | undefined {
   if (ownCode || kind !== 'review') return ownCode;
   return findReelCode(readReplyContext(message));
@@ -116,6 +125,6 @@ export function parseMessage(message: TelegramMessage, bot: BotIdentity): Messag
   const ownCode = findReelCode(body);
   const hasWork = ownMedia !== undefined || ownCode !== undefined;
   const kind = kindFromCommand(command) ?? kindFromContent(isAddressed(message, text, bot), hasWork, body);
-  const media = ownMedia ?? replyMedia(message, kind);
-  return { kind, text: body, media, reelCode: resolveReelCode(message, kind, ownCode), replyContext: readReplyContext(message) };
+  const reelCode = resolveReelCode(message, kind, ownCode);
+  return { kind, text: body, ...resolveMedia(message, kind, reelCode), reelCode, replyContext: readReplyContext(message) };
 }

@@ -127,7 +127,8 @@ export class BotService {
 
   private async runReelReview(message: TelegramMessage, intent: MessageIntent): Promise<void> {
     await this.reply(message, FETCHING_REEL_TEXT);
-    const answer = await this.withTyping(message.chat.id, () => this.reviews.link(intent.reelCode ?? '', intent.text));
+    const screenshot = intent.screenshot ? await this.api.downloadFile(intent.screenshot.fileId) : undefined;
+    const answer = await this.withTyping(message.chat.id, () => this.reviews.link(intent.reelCode ?? '', intent.text, screenshot));
     await this.reply(message, answer);
   }
 

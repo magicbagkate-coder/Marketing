@@ -61,6 +61,20 @@ describe('parseMessage', () => {
     expect(parseMessage(reply, BOT)).toMatchObject({ kind: 'review', reelCode: 'AbC' });
   });
 
+  it('treats a photo sent with a reel link as a statistics screenshot, not as a picture to review', () => {
+    const photo = [{ file_id: 'stats', width: 720, height: 1280 }];
+    const intent = parseMessage(makeMessage({ caption: '/review https://www.instagram.com/reel/AbC/ охват 40к', photo }), BOT);
+    expect(intent).toMatchObject({ kind: 'review', reelCode: 'AbC', screenshot: { fileId: 'stats', kind: 'photo' } });
+    expect(intent.media).toBeUndefined();
+  });
+
+  it('still reviews a lone photo as a picture', () => {
+    const photo = [{ file_id: 'cover', width: 720, height: 1280 }];
+    const intent = parseMessage(makeMessage({ caption: '/review', photo }), BOT);
+    expect(intent.media).toMatchObject({ fileId: 'cover' });
+    expect(intent.screenshot).toBeUndefined();
+  });
+
   it('ignores a link in an unaddressed group message', () => {
     expect(parseMessage(makeMessage({ text: 'смотрите https://www.instagram.com/reel/AbC/' }), BOT).kind).toBe('ignore');
   });
