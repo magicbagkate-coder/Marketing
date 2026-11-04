@@ -1,6 +1,6 @@
 import type { BotIdentity, TelegramFileRef, TelegramMessage, TelegramPhotoSize } from '@/telegram/telegram.types';
 
-import { findReelCode } from '@/instagram/reel-link';
+import { countReelLinks, findReelCode } from '@/instagram/reel-link';
 
 export type IntentKind = 'ignore' | 'id' | 'help' | 'ideas' | 'script' | 'review' | 'look' | 'chat' | 'reload';
 export type MediaKind = 'video' | 'photo';
@@ -18,6 +18,8 @@ export type MessageIntent = {
   media?: MediaRef;
   /** Short code of an Instagram reel link in the message (or in the message it replies to). */
   reelCode?: string;
+  /** How many different reel links the message has; the bot reviews one at a time. */
+  reelLinks: number;
   /** A photo sent together with a reel link is a screenshot of the reel's Instagram statistics, not a picture to review. */
   screenshot?: MediaRef;
   /** Pictures sent with a question (choose the best bag, compare covers): answered as a question, not as a reel review. */
@@ -153,7 +155,8 @@ export function parseMessage(message: TelegramMessage, bot: BotIdentity): Messag
   const first = kindFromCommand(command) ?? kindFromContent(isAddressed(message, text, bot), hasWork, body);
   const kind = refineKind(first, command, work);
   const reelCode = resolveReelCode(message, kind, work.ownCode);
-  return { kind, text: body, ...classifyMedia(work.media, kind, reelCode), reelCode, replyContext: readReplyContext(message) };
+  const reelLinks = countReelLinks(body);
+  return { kind, text: body, ...classifyMedia(work.media, kind, reelCode), reelCode, reelLinks, replyContext: readReplyContext(message) };
 }
 
 const MAX_ALBUM_IMAGES = 10;

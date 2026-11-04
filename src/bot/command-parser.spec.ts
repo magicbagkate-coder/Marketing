@@ -123,6 +123,13 @@ describe('parseMessage', () => {
     });
   });
 
+  it('counts the reel links so that the bot can ask for one at a time', () => {
+    const two = '/review https://www.instagram.com/reel/AAA/ https://www.instagram.com/reel/BBB/';
+    expect(parseMessage(makeMessage({ text: two }), BOT).reelLinks).toBe(2);
+    expect(parseMessage(makeMessage({ text: '/review https://www.instagram.com/reel/AAA/' }), BOT).reelLinks).toBe(1);
+    expect(parseMessage(makeMessage({ text: '/ideas 5' }), BOT).reelLinks).toBe(0);
+  });
+
   it('ignores a link in an unaddressed group message', () => {
     expect(parseMessage(makeMessage({ text: 'смотрите https://www.instagram.com/reel/AbC/' }), BOT).kind).toBe('ignore');
   });

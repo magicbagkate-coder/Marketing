@@ -1,4 +1,13 @@
-import { findReelCode, stripReelLinks } from '@/instagram/reel-link';
+import { countReelLinks, findReelCode, stripReelLinks } from '@/instagram/reel-link';
+
+describe('countReelLinks', () => {
+  it('counts different post links and ignores repeats and plain text', () => {
+    const two = 'https://www.instagram.com/reel/AAA/ и https://www.instagram.com/reel/BBB/?igsh=1';
+    expect(countReelLinks(two)).toBe(2);
+    expect(countReelLinks('https://instagram.com/reel/AAA/ https://instagram.com/reel/AAA/?x=1')).toBe(1);
+    expect(countReelLinks('просто текст')).toBe(0);
+  });
+});
 
 describe('stripReelLinks', () => {
   it('keeps only the employee words', () => {

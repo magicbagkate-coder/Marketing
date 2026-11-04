@@ -81,6 +81,14 @@ describe('buildLookContent', () => {
     expect(blocks[4]).toMatchObject({ source: { media_type: 'image/png' } });
   });
 
+  it('tells Claude to recognise statistics, client messages and products by itself', () => {
+    const blocks = buildLookContent([{ base64: 'AAA', mediaType: 'image/jpeg' }], describeLook(1, 'проанализируй', ''));
+    const instruction = textOf(blocks[blocks.length - 1]);
+    expect(instruction).toContain('Скриншоты статистики');
+    expect(instruction).toContain('отзывов');
+    expect(instruction).toContain('Товары и фото сумок');
+  });
+
   it('asks a default question when the caption is empty', () => {
     expect(describeLook(1, '', '')).toContain('что из этого интереснее нашей аудитории');
   });

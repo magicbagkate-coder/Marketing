@@ -20,6 +20,7 @@ import {
   LIMIT_REACHED_TEXT,
   NEED_MEDIA_TEXT,
   NEED_PICTURES_TEXT,
+  ONE_REEL_AT_A_TIME_TEXT,
   PROCESSING_TEXT,
   VIDEO_TOO_BIG_TEXT,
   VIDEO_TOO_LONG_TEXT,
@@ -148,6 +149,7 @@ export class BotService {
   }
 
   private async reviewMedia(message: TelegramMessage, intent: MessageIntent): Promise<void> {
+    if (intent.reelLinks > 1) return this.reply(message, ONE_REEL_AT_A_TIME_TEXT);
     const problem = intent.media || !intent.reelCode ? validateMedia(intent.media) : undefined;
     if (problem) return this.reply(message, problem);
     await this.withSlot(message, () => this.runReviewTask(message, intent));
