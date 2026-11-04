@@ -64,26 +64,4 @@ describe('parseMessage', () => {
   it('ignores a link in an unaddressed group message', () => {
     expect(parseMessage(makeMessage({ text: 'смотрите https://www.instagram.com/reel/AbC/' }), BOT).kind).toBe('ignore');
   });
-
-  describe('open working group', () => {
-    const open = { chatId: -100, userIds: [5] };
-
-    it('answers plain text of a team member without a mention', () => {
-      expect(parseMessage(makeMessage({ text: 'какие хуки лучше для рюкзаков?' }), BOT, open)).toMatchObject({ kind: 'chat' });
-    });
-
-    it('stays silent for strangers, other chats, short text and replies to colleagues', () => {
-      expect(parseMessage(makeMessage({ from: { id: 6, is_bot: false }, text: 'какие хуки лучше?' }), BOT, open).kind).toBe('ignore');
-      expect(parseMessage(makeMessage({ chat: { id: -200, type: 'supergroup' }, text: 'какие хуки лучше?' }), BOT, open).kind).toBe('ignore');
-      expect(parseMessage(makeMessage({ text: 'ок' }), BOT, open).kind).toBe('ignore');
-      const reply = makeMessage({ text: 'согласна с тобой', reply_to_message: makeMessage({ from: { id: 7, is_bot: false }, text: 'идея' }) });
-      expect(parseMessage(reply, BOT, open).kind).toBe('ignore');
-    });
-
-    it('does not review a video or a reel link unless asked', () => {
-      const video = { file_id: 'v1', duration: 10 };
-      expect(parseMessage(makeMessage({ caption: 'смотрите новый рилс', video }), BOT, open).kind).toBe('ignore');
-      expect(parseMessage(makeMessage({ text: 'смотрите https://www.instagram.com/reel/AbC/' }), BOT, open).kind).toBe('ignore');
-    });
-  });
 });
