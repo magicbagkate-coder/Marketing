@@ -25,6 +25,7 @@ export type BuildReport = {
   reused: number;
   failed: string[];
   inLibrary: number;
+  shortened: number;
   dropped: number;
 };
 
@@ -132,14 +133,14 @@ export class WinnersBuilder {
   }
 
   /** Puts the ranked cards (and, when something changed, a fresh summary of the patterns) into the knowledge folder. */
-  private async publish(sources: WinnerSource[], summarize: boolean): Promise<{ inLibrary: number; dropped: number }> {
+  private async publish(sources: WinnerSource[], summarize: boolean): Promise<{ inLibrary: number; shortened: number; dropped: number }> {
     const cards = await this.collectCards(sources);
-    if (cards.length === 0) return { inLibrary: 0, dropped: 0 };
+    if (cards.length === 0) return { inLibrary: 0, shortened: 0, dropped: 0 };
     const top = buildTopReels(cards);
     const needSummary = summarize || !(await patternsExist());
     const patterns = needSummary ? await this.summarize(cards) : undefined;
     await writeLibrary({ patterns, topReels: top.text });
-    return { inLibrary: top.included, dropped: top.dropped };
+    return { inLibrary: top.included, shortened: top.shortened, dropped: top.dropped };
   }
 
   /** The numbers come from the current list, so changed views are picked up without analysing the reel again. */

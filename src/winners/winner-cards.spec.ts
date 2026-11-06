@@ -1,6 +1,6 @@
 import type { WinnerCard } from '@/winners/winner-cards';
 
-import { buildTopReels, parseCardFile, rankCards, renderCardFile } from '@/winners/winner-cards';
+import { buildTopReels, parseCardFile, rankCards, renderCardFile, shortBody } from '@/winners/winner-cards';
 
 const card = (id: string, views: number | undefined, body = 'Хук: сумка в кадре'): WinnerCard => ({ id, views, note: '', body });
 
@@ -28,6 +28,20 @@ describe('buildTopReels', () => {
     expect(text.indexOf('№1 [top]')).toBeGreaterThan(-1);
     expect(text.indexOf('№1 [top]')).toBeLessThan(text.indexOf('№2 [low]'));
     expect(text).toContain('просмотры 250');
+  });
+
+  it('shortens the cards of the less viewed reels once the full ones fill their share', () => {
+    const body = ['Товар: сумка', 'Формат: демонстрация', 'Хук 0–3 с: пакеты', 'Ход ролика:', 'x'.repeat(60_000), 'Призыв к действию: в директ'].join('\n');
+    const result = buildTopReels([card('a', 3, body), card('b', 2, body), card('c', 1, body)]);
+    expect(result.shortened).toBe(2);
+    expect(result.dropped).toBe(0);
+    expect(result.text).toContain('Призыв к действию: в директ');
+    expect(result.text.length).toBeLessThan(130_000);
+  });
+
+  it('keeps only the product, format, hook and call to action in a short card', () => {
+    const body = 'Товар: а\nФормат: б\nХук 0–3 с: в\nХод ролика:\n0–5 с | кадр\nПризыв к действию: г\nПодпись: д';
+    expect(shortBody(body)).toBe('Товар: а\nФормат: б\nХук 0–3 с: в\nПризыв к действию: г');
   });
 
   it('drops the least viewed reels when the size budget is over', () => {

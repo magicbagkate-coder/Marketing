@@ -52,7 +52,7 @@ type PreparedReview = {
 const MAX_FRAMES = 12;
 const CARD_FRAMES = 20;
 const REVIEW_MAX_TOKENS = 16_000;
-const CARD_MAX_TOKENS = 3000;
+const CARD_MAX_TOKENS = 8000;
 
 const preparePhoto = (input: ReviewInput): PreparedReview => ({
   content: buildPhotoContent(input.media.toString('base64'), input.caption),
