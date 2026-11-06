@@ -10,7 +10,7 @@ export type WinnerCard = {
 
 const CARD_SEPARATOR = '\n---\n';
 /** Cards go into the prompt of every script, so the library has a size budget; the least viewed reels are dropped first. */
-export const CARDS_BUDGET_CHARS = 140_000;
+export const CARDS_BUDGET_CHARS = 150_000;
 
 const formatViews = (views: number | undefined): string => (views === undefined ? NO_VIEWS_LABEL : `просмотры ${views.toLocaleString('ru-RU')}`);
 

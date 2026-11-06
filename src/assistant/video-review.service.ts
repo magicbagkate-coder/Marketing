@@ -31,6 +31,8 @@ export type ReviewInput = {
   screenshot?: Buffer;
   /** Replaces the usual review instruction. */
   instruction?: string;
+  /** How many frames to cut out of the video; more frames give a more exact breakdown by seconds. */
+  maxFrames?: number;
 };
 
 export type LookInput = {
@@ -48,6 +50,7 @@ type PreparedReview = {
 };
 
 const MAX_FRAMES = 12;
+const CARD_FRAMES = 20;
 const REVIEW_MAX_TOKENS = 16_000;
 const CARD_MAX_TOKENS = 3000;
 
@@ -83,7 +86,7 @@ export class VideoReviewService {
   /** Writes the card of a winning reel: frames and speech go to Claude with the card instruction instead of a review. */
   async card(input: ReviewInput): Promise<string> {
     return this.inWorkDir(async (workDir) => {
-      const prepared = await this.prepareVideo({ ...input, instruction: WINNER_CARD_INSTRUCTION }, workDir);
+      const prepared = await this.prepareVideo({ ...input, instruction: WINNER_CARD_INSTRUCTION, maxFrames: CARD_FRAMES }, workDir);
       return this.claude.ask({
         model: envConfig.modelEvaluate,
         system: buildSystemBlocks(this.knowledge.textFor('review')),
@@ -121,7 +124,7 @@ export class VideoReviewService {
     const videoPath = join(workDir, 'input.mp4');
     await writeFile(videoPath, input.media);
     const info = await probeVideo(videoPath);
-    const frames = await this.extractFrames(videoPath, info, workDir);
+    const frames = await this.extractFrames(videoPath, info, { workDir, count: input.maxFrames ?? MAX_FRAMES });
     const transcript = await this.recognizeSpeech(videoPath, info, workDir);
     this.logger.log(`Video review: ${info.durationSec.toFixed(1)} s, ${frames.length} frames, speech ${transcript.status}`);
     const screenshot = input.screenshot?.toString('base64');
@@ -129,10 +132,10 @@ export class VideoReviewService {
     return { content: buildReviewContent(material), facts: describeFacts(material) };
   }
 
-  private async extractFrames(videoPath: string, info: VideoInfo, workDir: string): Promise<Frame[]> {
+  private async extractFrames(videoPath: string, info: VideoInfo, cut: { workDir: string; count: number }): Promise<Frame[]> {
     const frames: Frame[] = [];
-    for (const second of pickFrameTimes(info.durationSec, MAX_FRAMES)) {
-      const outputPath = join(workDir, `frame-${frames.length}-${second}.jpg`);
+    for (const second of pickFrameTimes(info.durationSec, cut.count)) {
+      const outputPath = join(cut.workDir, `frame-${frames.length}-${second}.jpg`);
       try {
         await extractFrame({ inputPath: videoPath, second, outputPath });
         frames.push({ second, base64: (await readFile(outputPath)).toString('base64') });
