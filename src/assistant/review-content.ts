@@ -35,6 +35,8 @@ export type ReviewMaterial = {
   published?: string;
   /** Base64 JPEG of the statistics screenshot from Instagram. */
   screenshot?: string;
+  /** Replaces the usual review instruction (for example the card of a winning reel). */
+  instruction?: string;
 };
 
 const TRANSCRIPT_NOTES: { [status: string]: string } = {
@@ -44,9 +46,9 @@ const TRANSCRIPT_NOTES: { [status: string]: string } = {
   silent: SILENT_AUDIO_NOTE,
 };
 
-const textBlock = (text: string): Anthropic.TextBlockParam => ({ type: 'text', text });
+export const textBlock = (text: string): Anthropic.TextBlockParam => ({ type: 'text', text });
 
-const imageBlock = (base64: string, mediaType: ImageMediaType = 'image/jpeg'): Anthropic.ImageBlockParam => ({
+export const imageBlock = (base64: string, mediaType: ImageMediaType = 'image/jpeg'): Anthropic.ImageBlockParam => ({
   type: 'image',
   source: { type: 'base64', media_type: mediaType, 'data': base64 },
 });
@@ -80,7 +82,7 @@ export const describePhotoFacts = (caption: string): string => `${REVIEW_PHOTO_I
 /** Everything Claude gets for a video review: facts, caption, speech, frames with time marks, and the answer format. */
 export function buildReviewContent(material: ReviewMaterial): Anthropic.ContentBlockParam[] {
   const frames = material.frames.flatMap((frame) => [textBlock(`Кадр на ${frame.second} с:`), imageBlock(frame.base64)]);
-  const instruction = material.published ? PUBLISHED_REVIEW_INSTRUCTION : REVIEW_INSTRUCTION;
+  const instruction = material.instruction ?? (material.published ? PUBLISHED_REVIEW_INSTRUCTION : REVIEW_INSTRUCTION);
   return [textBlock(describeFacts(material)), textBlock('Кадры ролика по времени:'), ...frames, ...statsBlocks(material.screenshot), textBlock(instruction)];
 }
 
@@ -103,6 +105,12 @@ export function describeLook(count: number, question: string, replyContext: stri
 export function buildLookContent(images: LookImage[], facts: string): Anthropic.ContentBlockParam[] {
   const numbered = images.flatMap((image, index) => [textBlock(`Картинка ${index + 1}:`), imageBlock(image.base64, image.mediaType)]);
   return [textBlock(facts), ...numbered, textBlock(LOOK_INSTRUCTION)];
+}
+
+/** Pictures that go into a prompt as they are (bag photos for a script): numbered images first, then the prompt text. */
+export function buildPicturesContent(images: LookImage[], prompt: string): Anthropic.ContentBlockParam[] {
+  const numbered = images.flatMap((image, index) => [textBlock(`Фото ${index + 1}:`), imageBlock(image.base64, image.mediaType)]);
+  return [...numbered, textBlock(prompt)];
 }
 
 /** Review of a single picture (cover or still), no sound. */

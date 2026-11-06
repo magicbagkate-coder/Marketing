@@ -1,0 +1,73 @@
+import { NO_VIEWS_LABEL, TOP_REELS_FILE_HEADER } from '@/winners/winners.texts';
+
+/** The description of one winning reel: what is in it, by seconds, plus the numbers the owner gave. */
+export type WinnerCard = {
+  id: string;
+  views?: number;
+  note: string;
+  body: string;
+};
+
+const CARD_SEPARATOR = '\n---\n';
+/** Cards go into the prompt of every script, so the library has a size budget; the least viewed reels are dropped first. */
+export const CARDS_BUDGET_CHARS = 140_000;
+
+const formatViews = (views: number | undefined): string => (views === undefined ? NO_VIEWS_LABEL : `просмотры ${views.toLocaleString('ru-RU')}`);
+
+/** The text of a card file kept between runs, so a reel is analysed only once. */
+export function renderCardFile(card: WinnerCard): string {
+  const head = [`id: ${card.id}`, `views: ${card.views ?? ''}`, `note: ${card.note.replace(/\s+/g, ' ')}`].join('\n');
+  return `${head}${CARD_SEPARATOR}${card.body.trim()}\n`;
+}
+
+function readField(head: string, name: string): string {
+  const line = head.split('\n').find((row) => row.startsWith(`${name}: `));
+  return line ? line.slice(name.length + 2).trim() : '';
+}
+
+export function parseCardFile(text: string): WinnerCard {
+  const [head, ...rest] = text.split(CARD_SEPARATOR);
+  const views = Number(readField(head, 'views'));
+  return {
+    id: readField(head, 'id'),
+    views: readField(head, 'views') === '' || Number.isNaN(views) ? undefined : views,
+    note: readField(head, 'note'),
+    body: rest.join(CARD_SEPARATOR).trim(),
+  };
+}
+
+/** Most viewed first; reels without numbers keep their order after the ones with numbers. */
+export function rankCards(cards: WinnerCard[]): WinnerCard[] {
+  return [...cards].sort((a, b) => (b.views ?? -1) - (a.views ?? -1));
+}
+
+function renderForPrompt(card: WinnerCard, place: number): string {
+  const note = card.note ? `\nЗаметка владелицы: ${card.note}` : '';
+  return `### Рилс-победитель №${place} [${card.id}], ${formatViews(card.views)}${note}\n${card.body}`;
+}
+
+export type TopReels = {
+  text: string;
+  included: number;
+  dropped: number;
+};
+
+/** The library file for the knowledge base: ranked cards, cut off at the size budget. */
+export function buildTopReels(cards: WinnerCard[], budget: number = CARDS_BUDGET_CHARS): TopReels {
+  const parts: string[] = [];
+  let total = 0;
+  for (const [index, card] of rankCards(cards).entries()) {
+    const part = renderForPrompt(card, index + 1);
+    if (total + part.length > budget) break;
+    parts.push(part);
+    total += part.length;
+  }
+  return { text: [TOP_REELS_FILE_HEADER, ...parts].join('\n\n'), included: parts.length, dropped: cards.length - parts.length };
+}
+
+/** All the cards as one text for the pattern summary (without the size budget of the prompt library). */
+export function cardsForSummary(cards: WinnerCard[]): string {
+  return rankCards(cards)
+    .map((card, index) => renderForPrompt(card, index + 1))
+    .join('\n\n');
+}

@@ -19,6 +19,7 @@ import { extractAudio, extractFrame, probeVideo } from '@/media/ffmpeg';
 import { pickFrameTimes } from '@/media/frame-times';
 import { detectImageType } from '@/media/image-type';
 import { transcribeAudio } from '@/media/transcriber';
+import { WINNER_CARD_INSTRUCTION } from '@/winners/winners.texts';
 
 export type ReviewInput = {
   media: Buffer;
@@ -28,6 +29,8 @@ export type ReviewInput = {
   published?: string;
   /** Screenshot of the reel's Instagram statistics (views, reach, saves) sent by the employee. */
   screenshot?: Buffer;
+  /** Replaces the usual review instruction. */
+  instruction?: string;
 };
 
 export type LookInput = {
@@ -46,6 +49,7 @@ type PreparedReview = {
 
 const MAX_FRAMES = 12;
 const REVIEW_MAX_TOKENS = 16_000;
+const CARD_MAX_TOKENS = 3000;
 
 const preparePhoto = (input: ReviewInput): PreparedReview => ({
   content: buildPhotoContent(input.media.toString('base64'), input.caption),
@@ -63,8 +67,7 @@ export class VideoReviewService {
   ) {}
 
   async review(input: ReviewInput): Promise<ReviewResult> {
-    const workDir = await mkdtemp(join(tmpdir(), 'review-'));
-    try {
+    return this.inWorkDir(async (workDir) => {
       const prepared = input.kind === 'photo' ? preparePhoto(input) : await this.prepareVideo(input, workDir);
       const raw = await this.claude.ask({
         model: envConfig.modelEvaluate,
@@ -74,9 +77,20 @@ export class VideoReviewService {
       });
       const { answer, framesLog } = splitFramesLog(raw);
       return { answer, digest: buildDigest(prepared.facts, framesLog) };
-    } finally {
-      await rm(workDir, { recursive: true, force: true });
-    }
+    });
+  }
+
+  /** Writes the card of a winning reel: frames and speech go to Claude with the card instruction instead of a review. */
+  async card(input: ReviewInput): Promise<string> {
+    return this.inWorkDir(async (workDir) => {
+      const prepared = await this.prepareVideo({ ...input, instruction: WINNER_CARD_INSTRUCTION }, workDir);
+      return this.claude.ask({
+        model: envConfig.modelEvaluate,
+        system: buildSystemBlocks(this.knowledge.textFor('review')),
+        messages: [{ role: 'user', content: prepared.content }],
+        maxTokens: CARD_MAX_TOKENS,
+      });
+    });
   }
 
   /** Answers a question about several pictures (choose the best product, compare covers) against the audience portrait. */
@@ -94,6 +108,15 @@ export class VideoReviewService {
     return { answer, digest: buildDigest(facts, framesLog) };
   }
 
+  private async inWorkDir<T>(task: (workDir: string) => Promise<T>): Promise<T> {
+    const workDir = await mkdtemp(join(tmpdir(), 'review-'));
+    try {
+      return await task(workDir);
+    } finally {
+      await rm(workDir, { recursive: true, force: true });
+    }
+  }
+
   private async prepareVideo(input: ReviewInput, workDir: string): Promise<PreparedReview> {
     const videoPath = join(workDir, 'input.mp4');
     await writeFile(videoPath, input.media);
@@ -102,7 +125,7 @@ export class VideoReviewService {
     const transcript = await this.recognizeSpeech(videoPath, info, workDir);
     this.logger.log(`Video review: ${info.durationSec.toFixed(1)} s, ${frames.length} frames, speech ${transcript.status}`);
     const screenshot = input.screenshot?.toString('base64');
-    const material = { info, frames, transcript, caption: input.caption, published: input.published, screenshot };
+    const material = { info, frames, transcript, caption: input.caption, published: input.published, screenshot, instruction: input.instruction };
     return { content: buildReviewContent(material), facts: describeFacts(material) };
   }
 

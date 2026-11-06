@@ -123,6 +123,46 @@ describe('parseMessage', () => {
     });
   });
 
+  describe('script for a bag on the photos', () => {
+    const photo = (id: string) => [{ file_id: id, width: 720, height: 1280 }];
+
+    it('takes a photo with a script request as the bag to write for, not as a question', () => {
+      const intent = parseMessage(makeMessage({ caption: '@magicbag_trends_bot напиши сценарий', photo: photo('bag') }), BOT);
+      expect(intent).toMatchObject({ kind: 'script', looks: [{ fileId: 'bag' }] });
+      expect(intent.media).toBeUndefined();
+    });
+
+    it('takes the /script command with a photo the same way', () => {
+      const intent = parseMessage(makeMessage({ caption: '/script для вечернего образа', photo: photo('bag') }), BOT);
+      expect(intent).toMatchObject({ kind: 'script', text: 'для вечернего образа', looks: [{ fileId: 'bag' }] });
+    });
+
+    it('takes a replied photo when the bot is asked for a script', () => {
+      const reply = makeMessage({ text: '@magicbag_trends_bot напиши сценарий', reply_to_message: makeMessage({ photo: photo('r') }) });
+      expect(parseMessage(reply, BOT)).toMatchObject({ kind: 'script', looks: [{ fileId: 'r' }] });
+    });
+
+    it('gathers all the photos of an album for one script', () => {
+      const album = [
+        makeMessage({ message_id: 1, photo: photo('a'), media_group_id: 'g' }),
+        makeMessage({ message_id: 2, photo: photo('b'), media_group_id: 'g', caption: '/script' }),
+      ];
+      const intent = parseAlbum(album, BOT);
+      expect(intent.kind).toBe('script');
+      expect(intent.looks?.map((look) => look.fileId)).toEqual(['a', 'b']);
+    });
+
+    it('keeps a photo without a script request as a question about the picture', () => {
+      expect(parseMessage(makeMessage({ caption: '@magicbag_trends_bot что скажешь?', photo: photo('a') }), BOT).kind).toBe('look');
+    });
+
+    it('keeps a text script request without photos as a plain script request', () => {
+      const intent = parseMessage(makeMessage({ text: '/script про рюкзак' }), BOT);
+      expect(intent.kind).toBe('script');
+      expect(intent.looks).toBeUndefined();
+    });
+  });
+
   it('counts the reel links so that the bot can ask for one at a time', () => {
     const two = '/review https://www.instagram.com/reel/AAA/ https://www.instagram.com/reel/BBB/';
     expect(parseMessage(makeMessage({ text: two }), BOT).reelLinks).toBe(2);

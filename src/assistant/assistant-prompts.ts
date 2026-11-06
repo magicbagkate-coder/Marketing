@@ -22,7 +22,7 @@ export type TaskInput = {
   trends: string;
 };
 
-const CONTEXT_LIMIT = 3000;
+const CONTEXT_LIMIT = 6000;
 const TRENDS_LIMIT = 5000;
 const INSTRUCTIONS: { [kind: string]: string } = { ideas: IDEAS_INSTRUCTION, script: SCRIPT_INSTRUCTION, chat: CHAT_INSTRUCTION };
 const DEFAULT_REQUESTS: { [kind: string]: string } = { ideas: DEFAULT_IDEAS_REQUEST, script: DEFAULT_SCRIPT_REQUEST, chat: '' };

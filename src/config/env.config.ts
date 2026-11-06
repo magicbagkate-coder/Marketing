@@ -16,6 +16,7 @@ export type EnvConfig = {
   anthropicModel: string;
   modelEvaluate: string;
   modelCreative: string;
+  modelScript: string;
   openaiApiKey: string;
   transcriptionModel: string;
   knowledgeDir: string;
@@ -35,6 +36,7 @@ export const envConfig: EnvConfig = {
   anthropicModel: process.env.ANTHROPIC_MODEL ?? DEFAULT_MODEL,
   modelEvaluate: process.env.ANTHROPIC_MODEL_EVALUATE ?? DEFAULT_MODEL,
   modelCreative: process.env.ANTHROPIC_MODEL_CREATIVE ?? DEFAULT_CREATIVE_MODEL,
+  modelScript: process.env.ANTHROPIC_MODEL_SCRIPT ?? process.env.ANTHROPIC_MODEL_EVALUATE ?? DEFAULT_MODEL,
   openaiApiKey: process.env.OPENAI_API_KEY ?? '',
   transcriptionModel: process.env.OPENAI_TRANSCRIBE_MODEL ?? DEFAULT_TRANSCRIPTION_MODEL,
   knowledgeDir: process.env.KNOWLEDGE_DIR ?? 'knowledge',

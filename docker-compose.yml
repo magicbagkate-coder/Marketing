@@ -7,7 +7,7 @@ services:
     ports:
       - "7000:7000"
     volumes:
-      # knowledge base (course texts, audience portrait, checklists): private, never in git
-      - ./knowledge:/app/knowledge:ro
+      # knowledge base (course texts, audience portrait, checklists, library of winning reels): private, never in git; writable so that winners:build can add the library
+      - ./knowledge:/app/knowledge
       # the latest digest, so the assistant can use today's trends
       - ./state:/app/state

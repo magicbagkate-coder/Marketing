@@ -1,4 +1,4 @@
-import { buildLookContent, buildPhotoContent, buildReviewContent, describeLook } from '@/assistant/review-content';
+import { buildLookContent, buildPhotoContent, buildPicturesContent, buildReviewContent, describeLook } from '@/assistant/review-content';
 
 const textOf = (block: { type: string; text?: string }): string => block.text ?? '';
 const INFO = { durationSec: 21.5, width: 1080, height: 1920, hasAudio: true };
@@ -91,6 +91,21 @@ describe('buildLookContent', () => {
 
   it('asks a default question when the caption is empty', () => {
     expect(describeLook(1, '', '')).toContain('что из этого интереснее нашей аудитории');
+  });
+});
+
+describe('buildPicturesContent', () => {
+  it('numbers the bag photos and puts the prompt last', () => {
+    const blocks = buildPicturesContent(
+      [
+        { base64: 'AAA', mediaType: 'image/jpeg' },
+        { base64: 'BBB', mediaType: 'image/png' },
+      ],
+      'Напиши сценарий',
+    );
+    expect(blocks.map((block) => block.type)).toEqual(['text', 'image', 'text', 'image', 'text']);
+    expect(textOf(blocks[2])).toBe('Фото 2:');
+    expect(textOf(blocks[4])).toBe('Напиши сценарий');
   });
 });
 

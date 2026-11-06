@@ -35,6 +35,7 @@ type CommandParts = {
 type Work = {
   media?: MediaRef;
   ownCode?: string;
+  body: string;
 };
 
 type ResolvedMedia = { media?: MediaRef; screenshot?: MediaRef; looks?: MediaRef[] };
@@ -124,14 +125,19 @@ function kindFromContent(addressed: boolean, hasWork: boolean, text: string): In
 
 const isPicturesOnly = (work: Work): boolean => work.media?.kind === 'photo' && work.ownCode === undefined;
 
-/** Pictures sent without /review are a question about pictures (choose, compare), not a reel review. */
+const SCRIPT_WORDS = /сценар|скрипт|script/i;
+
+/** Pictures sent without /review are a question about pictures (choose, compare), not a reel review; asked for a script, they are the bag to write it for. */
 function refineKind(kind: IntentKind, command: string, work: Work): IntentKind {
-  return kind === 'review' && command === '' && isPicturesOnly(work) ? 'look' : kind;
+  if (kind !== 'review' || command !== '' || !isPicturesOnly(work)) return kind;
+  return SCRIPT_WORDS.test(work.body) ? 'script' : 'look';
 }
+
+const isPictureTask = (kind: IntentKind, media: MediaRef): boolean => kind === 'look' || (kind === 'script' && media.kind === 'photo');
 
 function classifyMedia(media: MediaRef | undefined, kind: IntentKind, reelCode: string | undefined): ResolvedMedia {
   if (media === undefined) return {};
-  if (kind === 'look') return { looks: [media] };
+  if (isPictureTask(kind, media)) return { looks: [media] };
   return reelCode !== undefined && media.kind === 'photo' ? { screenshot: media } : { media };
 }
 
@@ -143,6 +149,7 @@ function resolveReelCode(message: TelegramMessage, kind: IntentKind, ownCode: st
 const detectWork = (message: TelegramMessage, body: string): Work => ({
   media: pickMedia(message) ?? pickReplyMedia(message),
   ownCode: findReelCode(body),
+  body,
 });
 
 /** Decides what a Telegram message is asking for. In groups only commands, mentions and replies to the bot count. */
@@ -169,8 +176,8 @@ export function parseAlbum(messages: TelegramMessage[], bot: BotIdentity): Messa
   const lead = messages.find((message) => readText(message)) ?? messages[0];
   const intent = parseMessage(lead, bot);
   const looks = messages.flatMap((message) => pickImage(message) ?? []).slice(0, MAX_ALBUM_IMAGES);
-  return looks.length >= 2 && isPictureQuestion(intent) ? { ...intent, kind: 'look', media: undefined, looks } : intent;
+  return looks.length >= 2 && isPictureQuestion(intent) ? { ...intent, kind: intent.kind === 'script' ? 'script' : 'look', media: undefined, looks } : intent;
 }
 
 const isPictureQuestion = (intent: MessageIntent): boolean =>
-  (intent.kind === 'look' || intent.kind === 'review') && intent.reelCode === undefined;
+  (intent.kind === 'look' || intent.kind === 'review' || intent.kind === 'script') && intent.reelCode === undefined;

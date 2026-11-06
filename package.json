@@ -9,6 +9,7 @@
     "lint": "eslint . --fix",
     "lint:check": "eslint .",
     "test": "jest",
+    "winners:build": "node dist/scripts/build-winners.js",
     "digest:now": "node dist/scripts/run-digest.js",
     "instagram:setup": "node dist/scripts/setup-instagram.js"
   },

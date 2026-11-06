@@ -50,6 +50,11 @@ describe('readKnowledge', () => {
     expect(knowledgeText(bundle, 'creative')).toContain('Portrait');
   });
 
+  it('gives the winning reels only to ideas and scripts', () => {
+    expect(scopesOf('winners/10-top-reels.md')).toEqual(['creative']);
+    expect(scopesOf('review/a.md')).toEqual(['review']);
+  });
+
   it('treats loose files as shared', () => {
     expect(scopesOf('notes.md')).toEqual(['review', 'creative']);
   });

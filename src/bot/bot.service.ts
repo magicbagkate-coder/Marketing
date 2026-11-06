@@ -13,43 +13,28 @@ import {
   buildLookingText,
   buildNoAccessText,
   buildReloadedText,
+  buildScriptingText,
   BUSY_TEXT,
   ERROR_TEXT,
   FETCHING_REEL_TEXT,
-  IMAGE_TOO_BIG_TEXT,
   LIMIT_REACHED_TEXT,
-  NEED_MEDIA_TEXT,
-  NEED_PICTURES_TEXT,
   ONE_REEL_AT_A_TIME_TEXT,
   PROCESSING_TEXT,
   VIDEO_TOO_BIG_TEXT,
-  VIDEO_TOO_LONG_TEXT,
 } from '@/bot/bot.texts';
 import { parseAlbum, parseMessage } from '@/bot/command-parser';
+import { validateLooks, validateMedia } from '@/bot/media-validation';
 import { RateLimiter } from '@/bot/rate-limiter';
 import { ReviewDesk } from '@/bot/review-desk.service';
 import { envConfig } from '@/config/env.config';
-import { MAX_DOWNLOAD_BYTES } from '@/telegram/telegram.constants';
 import { TelegramApiService } from '@/telegram/telegram-api.service';
 
-const MAX_VIDEO_SECONDS = 120;
 const MAX_PARALLEL_REVIEWS = 2;
 const DAILY_LIMIT = 40;
 const TYPING_INTERVAL_MS = 4000;
 
 const senderId = (message: TelegramMessage): number => message.from?.id ?? 0;
 const describeFailure = (error: unknown): string => (String(error).includes('too big') ? VIDEO_TOO_BIG_TEXT : ERROR_TEXT);
-
-function validateMedia(media: MediaRef | undefined): string | undefined {
-  if (!media) return NEED_MEDIA_TEXT;
-  if (media.sizeBytes > MAX_DOWNLOAD_BYTES) return VIDEO_TOO_BIG_TEXT;
-  return media.durationSec > MAX_VIDEO_SECONDS ? VIDEO_TOO_LONG_TEXT : undefined;
-}
-
-function validateLooks(looks: MediaRef[]): string | undefined {
-  if (looks.length === 0) return NEED_PICTURES_TEXT;
-  return looks.some((look) => look.sizeBytes > MAX_DOWNLOAD_BYTES) ? IMAGE_TOO_BIG_TEXT : undefined;
-}
 
 /** Decides who may ask what and runs the task: ideas, scripts, chat, video review. Works in the group and in private chats. */
 @Injectable()
@@ -179,6 +164,22 @@ export class BotService {
     const images = await Promise.all(looks.map((look) => this.api.downloadFile(look.fileId)));
     const request = { images, question: intent.text, replyContext: intent.replyContext };
     await this.sendReview(message, await this.withTyping(message.chat.id, () => this.reviews.look(request)));
+  }
+
+  /** A script is written for the bag on the photos; without photos it is an ordinary text request. */
+  private async writeScript(message: TelegramMessage, intent: MessageIntent): Promise<void> {
+    const looks = intent.looks ?? [];
+    if (looks.length === 0) return this.answerText(message, intent);
+    const problem = validateLooks(looks);
+    if (problem) return this.reply(message, problem);
+    await this.withSlot(message, () => this.runScript(message, intent, looks));
+  }
+
+  private async runScript(message: TelegramMessage, intent: MessageIntent, looks: MediaRef[]): Promise<void> {
+    await this.reply(message, buildScriptingText(looks.length));
+    const images = await Promise.all(looks.map((look) => this.api.downloadFile(look.fileId)));
+    const request = { chatId: message.chat.id, text: intent.text, replyContext: intent.replyContext, images };
+    await this.reply(message, await this.withTyping(message.chat.id, () => this.assistant.scriptFromPictures(request)));
   }
 
   private runReviewTask(message: TelegramMessage, intent: MessageIntent): Promise<void> {

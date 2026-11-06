@@ -22,11 +22,16 @@ const ALL_SCOPES: KnowledgeScope[] = ['review', 'creative'];
 const hasKnowledgeExtension = (name: string): boolean => EXTENSIONS.some((extension) => name.toLowerCase().endsWith(extension));
 const isKnowledgeFile = (name: string): boolean => hasKnowledgeExtension(name) && !name.startsWith('_') && !name.startsWith('.');
 
-/** Files under review/ or creative/ are read only for that task; everything else (shared/, loose files) is read for both. */
+const FOLDER_SCOPES = new Map<string, KnowledgeScope[]>([
+  ['review', ['review']],
+  ['creative', ['creative']],
+  ['winners', ['creative']],
+]);
+
+/** Files under review/ or creative/ are read only for that task, winners/ (our best reels) only for ideas and scripts; everything else (shared/, loose files) is read for both. */
 export function scopesOf(relativePath: string): KnowledgeScope[] {
   const [folder] = relativePath.split('/');
-  if (folder === 'review') return ['review'];
-  return folder === 'creative' ? ['creative'] : ALL_SCOPES;
+  return FOLDER_SCOPES.get(folder) ?? ALL_SCOPES;
 }
 
 async function listFiles(dir: string): Promise<string[]> {

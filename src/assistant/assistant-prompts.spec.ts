@@ -23,6 +23,13 @@ describe('buildTaskPrompt', () => {
     expect(prompt).toContain('trend text');
   });
 
+  it('makes the script rely on the winning reels and ask for second-by-second timing', () => {
+    const prompt = buildTaskPrompt({ kind: 'script', text: '', replyContext: '', trends: '' });
+    expect(prompt).toContain('рилсы-победители');
+    expect(prompt).toContain('посекундно');
+    expect(prompt).toContain('Озвучка');
+  });
+
   it('uses the employee request for a script and skips empty context', () => {
     const prompt = buildTaskPrompt({ kind: 'script', text: 'про рюкзак', replyContext: '', trends: '' });
     expect(prompt).toContain('Запрос сотрудника: про рюкзак');

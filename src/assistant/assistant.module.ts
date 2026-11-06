@@ -10,6 +10,6 @@ import { DigestModule } from '@/digest/digest.module';
 @Module({
   imports: [DigestModule],
   providers: [KnowledgeService, ClaudeChatService, AssistantService, VideoReviewService, ReelTalkService],
-  exports: [AssistantService, VideoReviewService, ReelTalkService, KnowledgeService],
+  exports: [AssistantService, VideoReviewService, ReelTalkService, KnowledgeService, ClaudeChatService],
 })
 export class AssistantModule {}
