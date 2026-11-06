@@ -44,6 +44,11 @@ describe('buildTopReels', () => {
     expect(shortBody(body)).toBe('Товар: а\nФормат: б\nХук 0–3 с: в\nПризыв к действию: г');
   });
 
+  it('finds the lines of a short card even when they are wrapped in tags', () => {
+    const body = '<b>Хук 0–3 с:</b> пакеты\n<b>Подпись:</b> нет\n<b>Призыв к действию:</b> в директ';
+    expect(shortBody(body)).toBe('<b>Хук 0–3 с:</b> пакеты\n<b>Призыв к действию:</b> в директ');
+  });
+
   it('drops the least viewed reels when the size budget is over', () => {
     const body = 'x'.repeat(500);
     const result = buildTopReels([card('a', 3, body), card('b', 2, body), card('c', 1, body)], 1200);

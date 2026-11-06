@@ -44,11 +44,13 @@ export function rankCards(cards: WinnerCard[]): WinnerCard[] {
   return [...cards].sort((a, b) => (b.views ?? -1) - (a.views ?? -1));
 }
 
+const stripTags = (line: string): string => line.replace(/<\/?[a-z]+>/gi, '').trim();
+
 /** The short form of a card: what the product is, the format, the hook and the call to action. */
 export function shortBody(body: string): string {
   return body
     .split('\n')
-    .filter((line) => SHORT_PREFIXES.some((prefix) => line.startsWith(prefix)))
+    .filter((line) => SHORT_PREFIXES.some((prefix) => stripTags(line).startsWith(prefix)))
     .join('\n');
 }
 
