@@ -30,6 +30,12 @@ describe('buildTaskPrompt', () => {
     expect(prompt).toContain('Озвучка');
   });
 
+  it('asks for a human screenwriter voice and bans advertising clichés', () => {
+    const prompt = buildTaskPrompt({ kind: 'script', text: '', replyContext: '', trends: '' });
+    expect(prompt).toContain('живой сильный сценарист');
+    expect(prompt).toContain('Запрещены штампы');
+  });
+
   it('uses the employee request for a script and skips empty context', () => {
     const prompt = buildTaskPrompt({ kind: 'script', text: 'про рюкзак', replyContext: '', trends: '' });
     expect(prompt).toContain('Запрос сотрудника: про рюкзак');
