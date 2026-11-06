@@ -94,10 +94,58 @@ export async function findOwnPost(options: SearchOptions): Promise<OwnPost | und
   return undefined;
 }
 
+/** What stops a post from being reviewed as a reel: it is not a video, or Instagram gives no file. */
+export function videoProblem(post: OwnPost): PostProblem | undefined {
+  if (post.mediaType !== 'VIDEO') return 'not-video';
+  return post.mediaUrl ? undefined : 'no-file';
+}
+
 /** Finds our own post by code and checks that it is a video with a downloadable file. */
 export async function findVideoPost(options: SearchOptions): Promise<OwnPost | PostProblem> {
   const post = await findOwnPost(options);
-  if (!post) return 'not-found';
-  if (post.mediaType !== 'VIDEO') return 'not-video';
-  return post.mediaUrl ? post : 'no-file';
+  return post ? (videoProblem(post) ?? post) : 'not-found';
+}
+
+export type BulkSearch = {
+  businessId: string;
+  token: string;
+  codes: string[];
+  maxPages: number;
+};
+
+export type BulkResult = {
+  posts: Map<string, OwnPost>;
+  /** Why the search stopped early (for example Instagram's request limit); the posts found before that are still returned. */
+  problem?: string;
+};
+
+type Pending = { wanted: Set<string>; found: Map<string, OwnPost> };
+
+function takeIfWanted(raw: RawPost, username: string, pending: Pending): void {
+  const code = raw.permalink ? findReelCode(raw.permalink) : undefined;
+  if (!code || !pending.wanted.delete(code)) return;
+  pending.found.set(code, toOwnPost(raw, username));
+}
+
+const nextCursor = (result: PageResult): string | undefined => (result.posts.length > 0 ? result.next : undefined);
+
+async function scanAccount(username: string, search: BulkSearch, pending: Pending): Promise<void> {
+  let after: string | undefined;
+  for (let page = 0; page < search.maxPages && pending.wanted.size > 0; page += 1) {
+    const result = parsePage(await callGraph(search.businessId, { fields: buildQuery(username, after), access_token: search.token }));
+    for (const raw of result.posts) takeIfWanted(raw, username, pending);
+    after = nextCursor(result);
+    if (!after) return;
+  }
+}
+
+/** Looks for many posts at once: each page of each account is read one time, however many codes are wanted. */
+export async function findOwnPosts(search: BulkSearch): Promise<BulkResult> {
+  const pending: Pending = { wanted: new Set(search.codes), found: new Map() };
+  try {
+    for (const username of OWN_ACCOUNTS) await scanAccount(username, search, pending);
+  } catch (error) {
+    return { posts: pending.found, problem: String(error) };
+  }
+  return { posts: pending.found };
 }
